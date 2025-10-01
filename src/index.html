@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistencia Pro 2.0</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Barra de Navegación Lateral -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Asistencia Pro</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="#" id="nav-dashboard">Dashboard</a></li>
+                    <li><a href="#" id="nav-groups">Grupos</a></li>
+                    <li><a href="#" id="nav-reports">Reportes</a></li>
+                    <li><a href="#" id="nav-settings">Configuración</a></li>
+                </ul>
+            </nav>
+            <div class="sidebar-footer">
+                <p>Datos se guardan localmente</p>
+            </div>
+        </aside>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Dashboard</h1>
+            </header>
+            <section id="content-area">
+                <!-- El contenido dinámico se cargará aquí -->
+                <p>Bienvenido a Asistencia Pro 2.0.</p>
+            </section>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="renderer.js"></script>
+
+    <!-- Modal para Añadir/Editar Grupo -->
+    <div id="group-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <form id="group-form">
+                <h2 id="modal-title">Crear Nuevo Grupo</h2>
+                <input type="hidden" id="group-id-input">
+
+                <div class="form-group">
+                    <label for="group-name">Nombre del Grupo</label>
+                    <input type="text" id="group-name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="subject-name">Nombre de la Materia</label>
+                    <input type="text" id="subject-name" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start-date">Fecha de Inicio</label>
+                        <input type="date" id="start-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="end-date">Fecha de Fin</label>
+                        <input type="date" id="end-date" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="partial1-end-date">Fin del Primer Parcial</label>
+                    <input type="date" id="partial1-end-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Días de Clase</label>
+                    <div id="class-days-checkboxes" class="checkbox-group">
+                        <label><input type="checkbox" name="class_day" value="1"> Lunes</label>
+                        <label><input type="checkbox" name="class_day" value="2"> Martes</label>
+                        <label><input type="checkbox" name="class_day" value="3"> Miércoles</label>
+                        <label><input type="checkbox" name="class_day" value="4"> Jueves</label>
+                        <label><input type="checkbox" name="class_day" value="5"> Viernes</label>
+                        <label><input type="checkbox" name="class_day" value="6"> Sábado</label>
+                        <label><input type="checkbox" name="class_day" value="0"> Domingo</label>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-group-modal" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" id="save-group-btn" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Añadir/Editar Alumno Individual -->
+    <div id="student-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <form id="student-form">
+                <h2 id="student-modal-title">Añadir Alumno</h2>
+                <input type="hidden" id="student-id-input">
+                <input type="hidden" id="student-group-id-input">
+
+                <div class="form-group">
+                    <label for="student-id-field">Matrícula (Opcional)</label>
+                    <input type="text" id="student-id-field">
+                </div>
+
+                <div class="form-group">
+                    <label for="student-name">Nombre Completo del Alumno</label>
+                    <input type="text" id="student-name" required>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-student-modal" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Alumno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para Añadir Varios Alumnos -->
+    <div id="multiple-students-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <form id="multiple-students-form">
+                <h2>Añadir Varios Alumnos</h2>
+                <input type="hidden" id="multiple-students-group-id-input">
+
+                <div class="form-group">
+                    <label for="students-textarea">Lista de Alumnos</label>
+                    <p>Pega la lista de alumnos aquí. Un alumno por línea. Formatos aceptados:<br>
+                        - <code>Matrícula, Nombre Completo</code><br>
+                        - <code>Nombre Completo</code>
+                    </p>
+                    <textarea id="students-textarea" rows="10" required></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-multiple-students-modal" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Añadir Alumnos</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Configuración -->
+    <div id="settings-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h2>Configuración Global</h2>
+
+            <div class="setting-item">
+                <label for="show-student-id-toggle">Mostrar columna de Matrícula</label>
+                <label class="switch">
+                    <input type="checkbox" id="show-student-id-toggle">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" id="close-settings-modal" class="btn btn-primary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
