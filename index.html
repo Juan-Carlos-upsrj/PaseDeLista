@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Política de Seguridad de Contenido -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <title>Asistencia Pro 2.0</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Barra Lateral -->
+        <nav class="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <svg class="sidebar-logo" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <h1>Asistencia Pro</h1>
+                </div>
+                <ul class="sidebar-menu">
+                    <li><a href="#inicio" class="sidebar-link active" data-section="inicio">Inicio</a></li>
+                    <li><a href="#grupos" class="sidebar-link" data-section="grupos">Grupos</a></li>
+                    <li><a href="#asistencia" class="sidebar-link" data-section="asistencia">Asistencia</a></li>
+                    <li><a href="#reportes" class="sidebar-link" data-section="reportes">Reportes</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-footer">
+                 <a href="#" id="settings-btn" class="sidebar-link">Configuración</a>
+                <div class="storage-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                    <span>Datos guardados localmente</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <!-- Sección de Inicio -->
+            <section id="inicio" class="content-section active">
+                <h2 class="section-title">Bienvenido, Docente</h2>
+                <div id="dashboard-alerts"></div>
+                <!-- ... más contenido del dashboard ... -->
+            </section>
+
+            <!-- Sección de Grupos -->
+            <section id="grupos" class="content-section">
+                 <h2 class="section-title">Gestión de Grupos y Alumnos</h2>
+                 <div class="split-view">
+                    <div class="split-view-left">
+                        <h3>Mis Grupos</h3>
+                        <button id="add-group-btn" class="btn btn-primary full-width">Crear Nuevo Grupo</button>
+                        <ul id="groups-list" class="item-list"></ul>
+                    </div>
+                    <div class="split-view-right">
+                        <div id="group-details-view" class="hidden">
+                            <!-- Tabs -->
+                            <div class="tabs">
+                                <button class="tab-link active" data-tab="configuracion">Configuración</button>
+                                <button class="tab-link" data-tab="alumnos">Alumnos</button>
+                            </div>
+
+                            <!-- Contenido Tab Configuración -->
+                            <div id="configuracion" class="tab-content active">
+                                <form id="group-form">
+                                    <input type="hidden" id="group-id">
+                                    <!-- Campos del formulario -->
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="group-name">Nombre del grupo</label>
+                                            <input type="text" id="group-name" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="subject-name">Materia</label>
+                                            <input type="text" id="subject-name" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="start-date">Inicio de Cuatrimestre</label>
+                                            <input type="date" id="start-date" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="end-date">Fin de Cuatrimestre</label>
+                                            <input type="date" id="end-date" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Días de Clase</label>
+                                        <div id="class-days-checkboxes" class="checkbox-group">
+                                            <!-- Checkboxes se generan dinámicamente -->
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="partial1-end-date">Fin del Primer Parcial</label>
+                                        <input type="date" id="partial1-end-date" required>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="button" id="delete-group-btn" class="btn btn-danger">Eliminar</button>
+                                        <button type="submit" class="btn btn-primary">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Contenido Tab Alumnos -->
+                            <div id="alumnos" class="tab-content">
+                                <div class="toolbar">
+                                    <h4 id="students-list-header">Alumnos</h4>
+                                    <div>
+                                        <button id="add-multiple-students-btn" class="btn btn-secondary">Añadir Varios</button>
+                                        <button id="add-student-btn" class="btn btn-primary">+ Añadir Alumno</button>
+                                    </div>
+                                </div>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="matricula-col">Matrícula</th>
+                                            <th>Nombre Completo</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="students-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="no-group-selected-view">
+                            <p>Selecciona un grupo para ver sus detalles o crea uno nuevo.</p>
+                        </div>
+                    </div>
+                 </div>
+            </section>
+
+            <!-- Sección de Asistencia -->
+            <section id="asistencia" class="content-section">
+                <div class="toolbar">
+                    <h2 class="section-title">Pase de Lista</h2>
+                    <div class="form-group">
+                        <label for="attendance-group-select">Seleccionar Grupo</label>
+                        <select id="attendance-group-select"></select>
+                    </div>
+                </div>
+                <div id="attendance-grid-container" class="table-container"></div>
+            </section>
+
+            <!-- Sección de Reportes -->
+            <section id="reportes" class="content-section">
+                <!-- ... contenido de reportes ... -->
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <!-- ... Aquí irían los modales para añadir alumno, añadir varios, configuración, etc. ... -->
+    <div id="settings-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Configuración Global</h3>
+            <div class="form-group-toggle">
+                <label for="show-matricula-toggle">Mostrar columna "Matrícula"</label>
+                <input type="checkbox" id="show-matricula-toggle" class="toggle-switch">
+            </div>
+            <div class="modal-actions">
+                <button id="close-settings-modal-btn" class="btn btn-primary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+    
+     <div id="add-multiple-students-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Añadir Varios Alumnos</h3>
+            <p>Pega la lista de alumnos, uno por línea. Formato: <strong>Matrícula, Nombre</strong> o solo <strong>Nombre</strong>.</p>
+            <textarea id="student-list-textarea" rows="10"></textarea>
+            <div class="modal-actions">
+                <button id="cancel-add-multiple-btn" class="btn btn-secondary">Cancelar</button>
+                <button id="save-multiple-students-btn" class="btn btn-primary">Guardar Alumnos</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>

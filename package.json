@@ -1,0 +1,20 @@
+{
+  "name": "asistencia-pro",
+  "version": "2.0.0",
+  "description": "Aplicación de escritorio para gestión de asistencia docente.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "electron-rebuild"
+  },
+  "keywords": [],
+  "author": "Docente",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-rebuild": "^3.2.9"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.6"
+  }
+}
