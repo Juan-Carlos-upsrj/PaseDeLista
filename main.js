@@ -1,7 +1,8 @@
 // main.js
 // Módulos para controlar el ciclo de vida de la aplicación y crear ventanas de navegador nativas.
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 // --- CONFIGURACIÓN DE LA BASE DE DATOS ---
@@ -217,7 +218,117 @@ ipcMain.handle('save-setting', async (event, { key, value }) => {
 });
 
 
+// --- EXPORTACIÓN ---
+ipcMain.handle('export-csv', async (event, data) => {
+    const { filePath } = await dialog.showSaveDialog({
+        title: 'Exportar a CSV',
+        defaultPath: `reporte-asistencia.csv`,
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    });
+
+    if (filePath) {
+        let csvContent = "Matricula,Alumno,Asistencias,Retardos,Faltas,% Asistencia\n";
+        data.forEach(row => {
+            csvContent += `${row.studentId || ''},${row.studentName},${row.presente},${row.retardo},${row.ausente},${row.percentage}%\n`;
+        });
+
+        try {
+            fs.writeFileSync(filePath, csvContent, 'utf-8');
+            return { success: true, path: filePath };
+        } catch (err) {
+            console.error("Error guardando el archivo CSV:", err);
+            return { success: false, error: err.message };
+        }
+    }
+    return { success: false, cancelled: true };
+});
+
+ipcMain.handle('export-pdf', async (event, data) => {
+    const { filePath } = await dialog.showSaveDialog({
+        title: 'Exportar a PDF',
+        defaultPath: `reporte-asistencia.pdf`,
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    });
+
+    if (filePath) {
+        let tableHTML = `
+            <style>
+                body { font-family: sans-serif; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+                thead { background-color: #f2f2f2; }
+                .low-attendance { background-color: #fffbeb; }
+            </style>
+            <h1>Reporte de Asistencia</h1>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Matrícula</th>
+                        <th>Alumno</th>
+                        <th>Asistencias</th>
+                        <th>Retardos</th>
+                        <th>Faltas</th>
+                        <th>% Asistencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        data.forEach(row => {
+            const lowAttendanceClass = row.percentage <= 80.0 ? 'class="low-attendance"' : '';
+            tableHTML += `
+                <tr ${lowAttendanceClass}>
+                    <td>${row.studentId || ''}</td>
+                    <td>${row.studentName}</td>
+                    <td>${row.presente}</td>
+                    <td>${row.retardo}</td>
+                    <td>${row.ausente}</td>
+                    <td>${row.percentage}%</td>
+                </tr>
+            `;
+        });
+        tableHTML += '</tbody></table>';
+
+        const pdfWindow = new BrowserWindow({ show: false });
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(tableHTML)}`);
+
+        try {
+            const pdfData = await pdfWindow.webContents.printToPDF({
+                marginsType: 0,
+                pageSize: 'A4',
+                printBackground: true,
+                printSelectionOnly: false,
+                landscape: false
+            });
+            fs.writeFileSync(filePath, pdfData);
+            pdfWindow.close();
+            return { success: true, path: filePath };
+        } catch(err) {
+            console.error("Error generando PDF:", err);
+            pdfWindow.close();
+            return { success: false, error: err.message };
+        }
+    }
+    return { success: false, cancelled: true };
+});
+
 // --- LÓGICA DEL DASHBOARD ---
+ipcMain.handle('get-today-classes', async () => {
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    const dayOfWeek = today.getDay(); // Domingo: 0, Lunes: 1, etc.
+
+    // Consulta para obtener grupos que están activos y tienen clase hoy.
+    const sql = `
+        SELECT group_name, subject_name
+        FROM Groups
+        WHERE ? BETWEEN start_date AND end_date
+          AND class_days LIKE ?
+    `;
+
+    // El patrón LIKE busca el número del día de la semana entre comas o al inicio/final.
+    return await dbAll(sql, [todayString, `%${dayOfWeek}%`]);
+});
+
 ipcMain.handle('check-pending-attendance', async () => {
     const groups = await dbAll('SELECT * FROM Groups');
     const pendingNotifications = [];

@@ -36,11 +36,15 @@
 
         <!-- Contenido Principal -->
         <main class="main-content">
+            <div id="notification-container"></div>
             <!-- Sección de Inicio -->
             <section id="inicio" class="content-section active">
                 <h2 class="section-title">Bienvenido, Docente</h2>
                 <div id="dashboard-alerts"></div>
-                <!-- ... más contenido del dashboard ... -->
+                <div id="today-classes-container">
+                    <h3>Clases de Hoy</h3>
+                    <div id="today-classes-list"></div>
+                </div>
             </section>
 
             <!-- Sección de Grupos -->
@@ -144,7 +148,29 @@
 
             <!-- Sección de Reportes -->
             <section id="reportes" class="content-section">
-                <!-- ... contenido de reportes ... -->
+                <h2 class="section-title">Generador de Reportes</h2>
+                <div class="toolbar">
+                    <div class="form-group">
+                        <label for="report-group-select">Seleccionar Grupo</label>
+                        <select id="report-group-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-period-select">Seleccionar Periodo</label>
+                        <select id="report-period-select">
+                            <option value="p1">Primer Parcial</option>
+                            <option value="p2">Segundo Parcial</option>
+                            <option value="all">Cuatrimestre Completo</option>
+                        </select>
+                    </div>
+                    <button id="generate-report-btn" class="btn btn-primary">Generar Reporte</button>
+                    <div class="form-actions" style="margin-top: 0; padding-top: 0;">
+                         <button id="export-csv-btn" class="btn btn-secondary" disabled>Exportar a CSV</button>
+                         <button id="export-pdf-btn" class="btn btn-secondary" disabled>Exportar a PDF</button>
+                    </div>
+                </div>
+                <div id="report-results-container" class="table-container">
+                    <p>Selecciona un grupo y un periodo, y haz clic en "Generar Reporte" para ver los resultados.</p>
+                </div>
             </section>
         </main>
     </div>
@@ -173,6 +199,26 @@
                 <button id="cancel-add-multiple-btn" class="btn btn-secondary">Cancelar</button>
                 <button id="save-multiple-students-btn" class="btn btn-primary">Guardar Alumnos</button>
             </div>
+        </div>
+    </div>
+
+    <div id="add-student-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Añadir Alumno</h3>
+            <form id="add-student-form">
+                <div class="form-group">
+                    <label for="new-student-id">Matrícula (Opcional)</label>
+                    <input type="text" id="new-student-id">
+                </div>
+                <div class="form-group">
+                    <label for="new-student-name">Nombre Completo</label>
+                    <input type="text" id="new-student-name" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-add-student-btn" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Alumno</button>
+                </div>
+            </form>
         </div>
     </div>
 
