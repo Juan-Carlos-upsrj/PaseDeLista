@@ -262,7 +262,7 @@ body {
 .data-table thead { background-color: #f8fafc; }
 .data-table th { font-weight: 600; }
 .data-table .action-link { color: var(--danger-color); cursor: pointer; }
-.low-attendance-row {
+.low-attendance-row td {
     background-color: #fffbeb; /* Amarillo pálido */
 }
 
