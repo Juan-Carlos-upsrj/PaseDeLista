@@ -27,9 +27,4 @@ contextBridge.exposeInMainWorld('api', {
     
     // Funciones para el Dashboard
     checkPendingAttendance: () => ipcRenderer.invoke('check-pending-attendance'),
-    getTodayClasses: () => ipcRenderer.invoke('get-today-classes'),
-
-    // Funciones de Exportación
-    exportCsv: (data) => ipcRenderer.invoke('export-csv', data),
-    exportPdf: (data) => ipcRenderer.invoke('export-pdf', data),
 });

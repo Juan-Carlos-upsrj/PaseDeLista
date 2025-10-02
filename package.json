@@ -5,16 +5,37 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "postinstall": "electron-rebuild"
+    "postinstall": "electron-rebuild",
+    "dist": "electron-builder"
   },
   "keywords": [],
   "author": "Docente",
   "license": "ISC",
   "devDependencies": {
     "electron": "^25.0.0",
+    "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
     "sqlite3": "^5.1.6"
+  },
+  "build": {
+    "appId": "com.docente.asistenciapro",
+    "productName": "Asistencia Pro",
+    "files": [
+      "**/*"
+    ],
+    "win": {
+      "icon": "assets/icon.png",
+      "target": "nsis"
+    },
+    "mac": {
+      "icon": "assets/icon.png",
+      "target": "dmg"
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": "AppImage"
+    }
   }
 }

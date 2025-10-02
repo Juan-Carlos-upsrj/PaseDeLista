@@ -73,6 +73,7 @@ function createWindow() {
         height: 800,
         minWidth: 940,
         minHeight: 600,
+        icon: path.join(__dirname, 'assets/icon.png'),
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
@@ -272,7 +273,7 @@ ipcMain.handle('export-pdf', async (event, data) => {
                 <tbody>
         `;
         data.forEach(row => {
-            const lowAttendanceClass = row.percentage <= 80.0 ? 'class="low-attendance"' : '';
+            const lowAttendanceClass = parseFloat(row.percentage) <= 80.0 ? 'class="low-attendance"' : '';
             tableHTML += `
                 <tr ${lowAttendanceClass}>
                     <td>${row.studentId || ''}</td>
@@ -315,7 +316,7 @@ ipcMain.handle('get-today-classes', async () => {
     const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
 
     if (!globalStartDate) {
-        return []; // No start date configured, so no classes today.
+        return [];
     }
 
     const today = new Date();

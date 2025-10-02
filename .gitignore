@@ -1,1 +1,14 @@
-node_modules/
+# Dependencies
+/node_modules
+
+# Build output
+/dist
+/release
+/build
+
+# Log files
+*.log
+npm-debug.log*
+
+# Scratch directory for verification scripts
+/jules-scratch/

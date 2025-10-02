@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <tbody>`;
 
         filteredData.forEach(res => {
-            const lowAttendanceClass = res.percentage <= 80.0 ? 'low-attendance-row' : '';
+            const lowAttendanceClass = parseFloat(res.percentage) <= 80.0 ? 'low-attendance-row' : '';
             tableHTML += `<tr class="${lowAttendanceClass}">
                 <td class="matricula-col">${res.studentId || ''}</td>
                 <td class="student-name-col">${res.studentName}</td>

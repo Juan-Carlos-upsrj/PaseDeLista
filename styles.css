@@ -263,7 +263,7 @@ body {
 .data-table th { font-weight: 600; }
 .data-table .action-link { color: var(--danger-color); cursor: pointer; }
 .low-attendance-row td {
-    background-color: #fffbeb; /* Amarillo pálido */
+    background-color: #fffbeb !important; /* Amarillo pálido, forzado */
 }
 
 /* Tabla de Reportes - Columnas específicas */
