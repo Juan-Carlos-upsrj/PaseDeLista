@@ -436,22 +436,18 @@ body {
     overflow: hidden;
 }
 
-.attendance-grid-header, .attendance-grid-row {
-    display: flex;
-    position: absolute;
-    left: 0;
-    width: 100%;
-}
-
 .attendance-grid-header {
+    display: flex;
     position: sticky;
     top: 0;
     z-index: 3;
     background-color: #f8fafc;
     font-weight: 600;
+    /* width is implicitly determined by content */
 }
 
 .attendance-grid-cell {
+    position: absolute; /* All cells are positioned by JS now */
     padding: 0.5rem;
     text-align: center;
     border-right: 1px solid var(--border-color);
@@ -466,12 +462,13 @@ body {
 }
 
 .attendance-grid-header .attendance-grid-cell {
+    position: relative; /* Header cells are laid out by flex, not absolutely */
     border-bottom-width: 2px;
+    cursor: default;
 }
 
 .student-name-cell {
-    position: sticky;
-    left: 0;
+    /* `position: sticky` is removed; JS calculates `left` on scroll */
     z-index: 2;
     background-color: #f8fafc;
     text-align: left;

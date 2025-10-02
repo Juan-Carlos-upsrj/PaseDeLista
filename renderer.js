@@ -276,52 +276,52 @@ document.addEventListener('DOMContentLoaded', () => {
         const firstRow = Math.max(0, Math.floor(scrollTop / rowHeight));
         const lastRow = Math.min(data.length, Math.ceil((scrollTop + viewportHeight) / rowHeight));
 
+        // Render a bit beyond the viewport for smoother scrolling
         const firstCol = Math.max(0, Math.floor(scrollLeft / colWidth));
-        const lastCol = Math.min(classDates.length, Math.ceil((scrollLeft + viewportWidth) / colWidth));
+        const lastCol = Math.min(classDates.length, Math.ceil((scrollLeft + viewportWidth) / colWidth) + 1);
 
-        // Use a document fragment for performance
         const fragment = document.createDocumentFragment();
 
         // --- Render Header ---
         const header = document.createElement('div');
         header.className = 'attendance-grid-header';
-        header.style.transform = `translateY(${scrollTop}px)`;
+        header.style.width = `${200 + classDates.length * colWidth}px`; // Set full width for the flex container
 
         const studentHeaderCell = document.createElement('div');
         studentHeaderCell.className = 'attendance-grid-cell student-name-cell';
         studentHeaderCell.textContent = 'Alumno';
         studentHeaderCell.style.width = '200px';
-        studentHeaderCell.style.left = `${scrollLeft}px`;
+        studentHeaderCell.style.position = 'sticky'; // Make the student header cell sticky
+        studentHeaderCell.style.left = '0';
         header.appendChild(studentHeaderCell);
 
-        for (let j = firstCol; j < lastCol; j++) {
+        for (let j = 0; j < classDates.length; j++) {
             const date = classDates[j];
             const dateCell = document.createElement('div');
             dateCell.className = 'attendance-grid-cell date-header-cell';
             dateCell.textContent = date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
             dateCell.style.width = `${colWidth}px`;
-            dateCell.style.left = `${200 + j * colWidth}px`;
+            dateCell.style.flexShrink = '0';
             header.appendChild(dateCell);
         }
         fragment.appendChild(header);
 
-        // --- Render Rows ---
+        // --- Render Data Cells ---
         for (let i = firstRow; i < lastRow; i++) {
             const student = students[i];
-            const row = document.createElement('div');
-            row.className = 'attendance-grid-row';
-            row.style.height = `${rowHeight}px`;
-            row.style.top = `${i * rowHeight}px`;
+            const top = i * rowHeight;
 
-            // Student Name Cell (Sticky)
+            // Student Name Cell (positioned absolutely, stuck to the left via JS)
             const nameCell = document.createElement('div');
             nameCell.className = 'attendance-grid-cell student-name-cell';
             nameCell.textContent = student.student_name;
             nameCell.style.width = '200px';
-            nameCell.style.left = `${scrollLeft}px`;
-            row.appendChild(nameCell);
+            nameCell.style.height = `${rowHeight}px`;
+            nameCell.style.top = `${top}px`;
+            nameCell.style.left = `${scrollLeft}px`; // Sticks to the viewport left
+            fragment.appendChild(nameCell);
 
-            // Attendance Data Cells
+            // Attendance Data Cells (positioned absolutely)
             for (let j = firstCol; j < lastCol; j++) {
                 const status = data[i][j];
                 const cell = document.createElement('div');
@@ -333,10 +333,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.dataset.row = i;
                 cell.dataset.col = j;
                 cell.style.width = `${colWidth}px`;
+                cell.style.height = `${rowHeight}px`;
+                cell.style.top = `${top}px`;
                 cell.style.left = `${200 + j * colWidth}px`;
-                row.appendChild(cell);
+                fragment.appendChild(cell);
             }
-            fragment.appendChild(row);
         }
 
         content.innerHTML = ''; // Clear previous render
@@ -372,27 +373,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('quick-pass-btn').addEventListener('click', async () => {
         const { data, students, classDates } = state.virtualGrid;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize to midnight
+
+        // Find the index for today's date
+        const todayIndex = classDates.findIndex(d => d.getTime() === today.getTime());
+
+        if (todayIndex === -1) {
+            showNotification('No hay clase programada para hoy.', 'error');
+            return;
+        }
+
+        const todayDateString = classDates[todayIndex].toISOString().split('T')[0];
         let updates = 0;
         const promises = [];
 
         for (let i = 0; i < data.length; i++) {
-            for (let j = 0; j < data[i].length; j++) {
-                if (data[i][j] === 'Pendiente') {
-                    const studentId = students[i].id;
-                    const date = classDates[j].toISOString().split('T')[0];
-                    promises.push(window.api.setAttendance({ studentId, date, status: 'Presente' }));
-                    data[i][j] = 'Presente';
-                    updates++;
-                }
+            // Check only the column for today's date
+            if (data[i][todayIndex] === 'Pendiente') {
+                const studentId = students[i].id;
+                promises.push(window.api.setAttendance({ studentId, date: todayDateString, status: 'Presente' }));
+                data[i][todayIndex] = 'Presente';
+                updates++;
             }
         }
 
         if (updates > 0) {
             await Promise.all(promises);
-            updateVisibleGrid();
-            showNotification(`${updates} alumnos marcados como "Presente".`);
+            renderVisibleGrid(); // Corrected function call
+            showNotification(`${updates} alumnos marcados como "Presente" para hoy.`);
         } else {
-            showNotification('No hay alumnos pendientes para marcar.', 'error');
+            showNotification('No hay alumnos pendientes para marcar en la fecha de hoy.', 'error');
         }
     });
 
