@@ -29,7 +29,6 @@ function createTables() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             group_name TEXT NOT NULL,
             subject_name TEXT NOT NULL,
-            end_date TEXT,
             class_days TEXT
         );
 
@@ -136,17 +135,17 @@ function dbRun(sql, params = []) {
 // --- GRUPOS ---
 ipcMain.handle('get-groups', async () => await dbAll('SELECT * FROM Groups ORDER BY group_name'));
 ipcMain.handle('add-group', async (event, group) => {
-    const { name, subject, endDate, classDays } = group;
+    const { name, subject, classDays } = group;
     return await dbRun(
-        'INSERT INTO Groups (group_name, subject_name, end_date, class_days) VALUES (?, ?, ?, ?)',
-        [name, subject, endDate, classDays.join(',')]
+        'INSERT INTO Groups (group_name, subject_name, class_days) VALUES (?, ?, ?)',
+        [name, subject, classDays.join(',')]
     );
 });
 ipcMain.handle('update-group', async (event, group) => {
-    const { id, name, subject, endDate, classDays } = group;
+    const { id, name, subject, classDays } = group;
     return await dbRun(
-        'UPDATE Groups SET group_name = ?, subject_name = ?, end_date = ?, class_days = ? WHERE id = ?',
-        [name, subject, endDate, classDays.join(','), id]
+        'UPDATE Groups SET group_name = ?, subject_name = ?, class_days = ? WHERE id = ?',
+        [name, subject, classDays.join(','), id]
     );
 });
 ipcMain.handle('delete-group', async (event, id) => await dbRun('DELETE FROM Groups WHERE id = ?', [id]));

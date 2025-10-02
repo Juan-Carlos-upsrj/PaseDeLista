@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView: 'inicio',
         selectedGroupId: null,
         groups: [],
-        settings: {}, // Will hold showMatricula, globalStartDate, globalPartial1EndDate
+        settings: {}, // Will hold showMatricula, globalStartDate, globalPartial1EndDate, globalEndDate
         reportData: null
     };
 
@@ -84,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
         groupForm.querySelector('#group-id').value = group.id;
         groupForm.querySelector('#group-name').value = group.group_name;
         groupForm.querySelector('#subject-name').value = group.subject_name;
-        groupForm.querySelector('#end-date').value = group.end_date;
 
         const classDays = group.class_days ? group.class_days.split(',').map(Number) : [];
         document.querySelectorAll('#class-days-checkboxes input').forEach(cb => {
@@ -104,7 +103,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const groupData = {
             name: document.getElementById('group-name').value,
             subject: document.getElementById('subject-name').value,
-            endDate: document.getElementById('end-date').value,
             classDays: classDays
         };
 
@@ -197,9 +195,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function renderAttendanceGrid(groupId) {
         attendanceGridContainer.innerHTML = 'Cargando...';
 
-        const { globalStartDate } = state.settings;
-        if (!globalStartDate) {
-            attendanceGridContainer.innerHTML = '<p>Por favor, establece la "Fecha de Inicio de Cuatrimestre" en la Configuración Global para continuar.</p>';
+        const { globalStartDate, globalEndDate } = state.settings;
+        if (!globalStartDate || !globalEndDate) {
+            attendanceGridContainer.innerHTML = '<p>Por favor, establece las fechas de "Inicio y Fin de Cuatrimestre" en la Configuración Global para continuar.</p>';
             return;
         }
 
@@ -212,15 +210,15 @@ document.addEventListener('DOMContentLoaded', () => {
             attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status);
         });
 
-        if (!group.end_date || !group.class_days) {
-            attendanceGridContainer.innerHTML = '<p>Este grupo no tiene configuradas la fecha de fin de cuatrimestre o los días de clase.</p>';
+        if (!group.class_days) {
+            attendanceGridContainer.innerHTML = '<p>Este grupo no tiene configurados los días de clase.</p>';
             return;
         }
 
         const classDates = [];
         const classDays = group.class_days.split(',').map(Number);
         const startDate = new Date(globalStartDate + 'T00:00:00');
-        const endDate = new Date(group.end_date + 'T00:00:00');
+        const endDate = new Date(globalEndDate + 'T00:00:00');
 
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             if (classDays.includes(d.getDay())) {
@@ -384,7 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function generateReport() {
         const groupId = document.getElementById('report-group-select').value;
         const period = document.getElementById('report-period-select').value;
-        const { globalStartDate, globalPartial1EndDate } = state.settings;
+        const { globalStartDate, globalPartial1EndDate, globalEndDate } = state.settings;
 
         reportSearchInput.value = '';
 
@@ -392,8 +390,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Por favor, selecciona un grupo.', 'error');
             return;
         }
-        if (!globalStartDate || !globalPartial1EndDate) {
-            showNotification('Por favor, configura las fechas globales de inicio y fin de parcial en la Configuración Global.', 'error');
+        if (!globalStartDate || !globalPartial1EndDate || !globalEndDate) {
+            showNotification('Por favor, configura todas las fechas globales (Inicio, Fin de Parcial y Fin de Cuatrimestre) en la Configuración Global.', 'error');
             return;
         }
 
@@ -406,13 +404,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const students = await window.api.getStudents(groupId);
         const attendanceData = await window.api.getAttendance(groupId);
 
-        if (!group.end_date || !group.class_days) {
-            reportResultsContainer.innerHTML = '<p>El grupo seleccionado no tiene configurada la fecha de fin o los días de clase.</p>';
+        if (!group.class_days) {
+            reportResultsContainer.innerHTML = '<p>El grupo seleccionado no tiene configurados los días de clase.</p>';
             return;
         }
 
         const groupStartDate = new Date(globalStartDate + 'T00:00:00');
-        const groupEndDate = new Date(group.end_date + 'T00:00:00');
+        const groupEndDate = new Date(globalEndDate + 'T00:00:00');
         const partial1EndDate = new Date(globalPartial1EndDate + 'T00:00:00');
 
         let periodStartDate, periodEndDate;
@@ -480,6 +478,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const matriculaToggle = document.getElementById('show-matricula-toggle');
     const globalStartDateInput = document.getElementById('global-start-date');
     const globalPartial1EndDateInput = document.getElementById('global-partial1-end-date');
+    const globalEndDateInput = document.getElementById('global-end-date');
 
     document.getElementById('settings-btn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
     document.getElementById('close-settings-modal-btn').addEventListener('click', () => settingsModal.classList.add('hidden'));
@@ -503,6 +502,12 @@ document.addEventListener('DOMContentLoaded', () => {
         await window.api.saveSetting({ key: 'globalPartial1EndDate', value });
     });
 
+    globalEndDateInput.addEventListener('change', async () => {
+        const value = globalEndDateInput.value;
+        state.settings.globalEndDate = value;
+        await window.api.saveSetting({ key: 'globalEndDate', value });
+    });
+
     function applyMatriculaVisibility() {
         const show = state.settings.showMatricula === 'true';
         document.querySelectorAll('.matricula-col').forEach(col => {
@@ -516,6 +521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         matriculaToggle.checked = settings.showMatricula === 'true';
         globalStartDateInput.value = settings.globalStartDate || '';
         globalPartial1EndDateInput.value = settings.globalPartial1EndDate || '';
+        globalEndDateInput.value = settings.globalEndDate || '';
         applyMatriculaVisibility();
     }
 
