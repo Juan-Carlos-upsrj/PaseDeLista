@@ -421,3 +421,65 @@ body {
         transform: translateX(100%);
     }
 }
+
+/* --- VIRTUALIZED ATTENDANCE GRID --- */
+.attendance-grid-container {
+    position: relative;
+    overflow: auto;
+    height: calc(100vh - 20rem); /* Adjust height as needed */
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+.attendance-grid-content {
+    position: relative;
+    overflow: hidden;
+}
+
+.attendance-grid-header, .attendance-grid-row {
+    display: flex;
+    position: absolute;
+    left: 0;
+    width: 100%;
+}
+
+.attendance-grid-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background-color: #f8fafc;
+    font-weight: 600;
+}
+
+.attendance-grid-cell {
+    padding: 0.5rem;
+    text-align: center;
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.attendance-grid-header .attendance-grid-cell {
+    border-bottom-width: 2px;
+}
+
+.student-name-cell {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background-color: #f8fafc;
+    text-align: left;
+    justify-content: flex-start;
+}
+
+.date-header-cell {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.2rem;
+    background-color: #f1f5f9;
+}

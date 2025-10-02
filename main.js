@@ -6,21 +6,84 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 // --- CONFIGURACIÓN DE LA BASE DE DATOS ---
-// Define la ruta de la base de datos en la carpeta de datos del usuario.
 const dbPath = path.join(app.getPath('userData'), 'asistencia_pro.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error abriendo la base de datos", err.message);
     } else {
         console.log("Conectado a la base de datos SQLite.");
-        // Habilitar claves foráneas
         db.run("PRAGMA foreign_keys = ON;", (pragmaErr) => {
             if (pragmaErr) console.error("Error habilitando PRAGMA foreign_keys", pragmaErr.message);
         });
-        // Crear tablas si no existen
-        createTables();
+        // Crear tablas y luego correr migraciones
+        createTables().then(runMigrations);
     }
 });
+
+async function runMigrations() {
+    console.log('Verificando migraciones de la base de datos...');
+    const targetVersion = 1;
+
+    try {
+        await dbRun('BEGIN TRANSACTION');
+
+        let { user_version } = await new Promise((resolve, reject) => {
+            db.get('PRAGMA user_version;', (err, row) => err ? reject(err) : resolve(row));
+        });
+
+        console.log(`Versión actual de la BD: ${user_version}`);
+
+        if (user_version < 1) {
+            console.log('Aplicando migración a v1...');
+
+            // Comprobar si la tabla Groups tiene el esquema antiguo
+            const columns = await dbAll(`PRAGMA table_info(Groups);`);
+            const hasOldSchema = columns.some(col => col.name === 'start_date');
+
+            if (hasOldSchema) {
+                console.log('Detectado esquema antiguo. Migrando datos de fecha...');
+
+                // 1. Obtener las fechas del primer grupo para usarlas como globales
+                const firstGroupWithDates = await dbAll(`SELECT start_date, end_date, partial1_end_date FROM Groups WHERE start_date IS NOT NULL AND end_date IS NOT NULL LIMIT 1`);
+                if (firstGroupWithDates.length > 0) {
+                    const { start_date, end_date, partial1_end_date } = firstGroupWithDates[0];
+                    await dbRun(`INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?), (?, ?), (?, ?)`, [
+                        'globalStartDate', start_date,
+                        'globalEndDate', end_date,
+                        'globalPartial1EndDate', partial1_end_date
+                    ]);
+                    console.log('Fechas de grupo migradas a configuración global.');
+                }
+
+                // 2. Recrear la tabla Groups sin las columnas de fecha
+                await dbRun(`CREATE TABLE Groups_backup AS SELECT id, group_name, subject_name, class_days FROM Groups;`);
+                await dbRun(`DROP TABLE Groups;`);
+                await dbRun(`
+                    CREATE TABLE Groups (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        group_name TEXT NOT NULL,
+                        subject_name TEXT NOT NULL,
+                        class_days TEXT
+                    );
+                `);
+                await dbRun(`INSERT INTO Groups (id, group_name, subject_name, class_days) SELECT id, group_name, subject_name, class_days FROM Groups_backup;`);
+                await dbRun(`DROP TABLE Groups_backup;`);
+                console.log('Tabla Groups recreada con el nuevo esquema.');
+            }
+
+            // 3. Actualizar la versión de la base de datos
+            await dbRun(`PRAGMA user_version = 1`);
+            console.log('Migración a v1 completada.');
+        }
+
+        await dbRun('COMMIT');
+        console.log('Verificación de migraciones completada.');
+    } catch (err) {
+        console.error('Error durante la migración:', err.message);
+        await dbRun('ROLLBACK');
+    }
+}
+
 
 // Función para crear las tablas de la base de datos.
 function createTables() {
@@ -54,19 +117,22 @@ function createTables() {
             value TEXT
         );
     `;
-    db.exec(sql, (err) => {
-        if (err) {
-            console.error("Error creando tablas", err.message);
-        } else {
-            console.log("Tablas verificadas/creadas correctamente.");
-        }
+    return new Promise((resolve, reject) => {
+         db.exec(sql, (err) => {
+            if (err) {
+                console.error("Error creando tablas", err.message);
+                reject(err);
+            } else {
+                console.log("Tablas verificadas/creadas correctamente.");
+                resolve();
+            }
+        });
     });
 }
 
 
 // --- GESTIÓN DE LA VENTANA PRINCIPAL ---
 function createWindow() {
-    // Crea la ventana del navegador.
     const mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -80,28 +146,19 @@ function createWindow() {
         }
     });
 
-    // Carga el index.html de la app.
     mainWindow.loadFile('index.html');
-
-    // Abre las DevTools (opcional).
-    // mainWindow.webContents.openDevTools();
 }
 
-// Este método será llamado cuando Electron haya finalizado
-// la inicialización y esté listo para crear ventanas de navegador.
 app.whenReady().then(createWindow);
 
-// Salir cuando todas las ventanas estén cerradas (excepto en macOS).
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
-        db.close(); // Cierra la conexión a la BD
+        db.close();
         app.quit();
     }
 });
 
 app.on('activate', () => {
-    // En macOS, es común recrear una ventana en la app cuando el
-    // ícono del dock es presionado y no hay otras ventanas abiertas.
     if (BrowserWindow.getAllWindows().length === 0) {
         createWindow();
     }
@@ -109,10 +166,6 @@ app.on('activate', () => {
 
 
 // --- COMUNICACIÓN CON EL RENDERER PROCESS (IPC) ---
-// En este archivo puedes incluir el resto de la lógica del proceso principal de tu app.
-// Aquí manejamos todas las interacciones con la base de datos.
-
-// Función genérica para consultas SELECT (devuelve todas las filas)
 function dbAll(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.all(sql, params, (err, rows) => {
@@ -122,7 +175,6 @@ function dbAll(sql, params = []) {
     });
 }
 
-// Función genérica para consultas INSERT, UPDATE, DELETE (devuelve info de la ejecución)
 function dbRun(sql, params = []) {
     return new Promise((resolve, reject) => {
         db.run(sql, params, function(err) {
@@ -195,7 +247,6 @@ ipcMain.handle('get-attendance', async (event, groupId) => {
     return await dbAll(sql, [groupId]);
 });
 ipcMain.handle('set-attendance', async (event, { studentId, date, status }) => {
-    // 'INSERT OR REPLACE' (UPSERT) para insertar o actualizar si ya existe.
     const sql = 'INSERT OR REPLACE INTO Attendance (student_id, attendance_date, status) VALUES (?, ?, ?)';
     return await dbRun(sql, [studentId, date, status]);
 });
@@ -204,7 +255,6 @@ ipcMain.handle('set-attendance', async (event, { studentId, date, status }) => {
 // --- CONFIGURACIÓN ---
 ipcMain.handle('get-settings', async () => {
     const rows = await dbAll('SELECT * FROM Settings');
-    // Convertir el array de filas en un objeto clave-valor
     return rows.reduce((acc, setting) => {
         acc[setting.key] = setting.value;
         return acc;
@@ -311,10 +361,11 @@ ipcMain.handle('export-pdf', async (event, data) => {
 
 // --- LÓGICA DEL DASHBOARD ---
 ipcMain.handle('get-today-classes', async () => {
-    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key = "globalStartDate"');
+    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key IN ("globalStartDate", "globalEndDate")');
     const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
+    const globalEndDate = settingsRows.find(s => s.key === 'globalEndDate')?.value;
 
-    if (!globalStartDate) {
+    if (!globalStartDate || !globalEndDate) {
         return [];
     }
 
@@ -325,18 +376,20 @@ ipcMain.handle('get-today-classes', async () => {
     const sql = `
         SELECT group_name, subject_name
         FROM Groups
-        WHERE ? >= ? AND ? <= end_date
+        WHERE ? >= ? AND ? <= ?
           AND class_days LIKE ?
     `;
 
-    return await dbAll(sql, [todayString, globalStartDate, todayString, `%${dayOfWeek}%`]);
+    return await dbAll(sql, [todayString, globalStartDate, todayString, globalEndDate, `%${dayOfWeek}%`]);
 });
 
 ipcMain.handle('check-pending-attendance', async () => {
-    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key = "globalStartDate"');
+    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key IN ("globalStartDate", "globalEndDate")');
     const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
+    const globalEndDate = settingsRows.find(s => s.key === 'globalEndDate')?.value;
 
-    if (!globalStartDate) {
+
+    if (!globalStartDate || !globalEndDate) {
         return [];
     }
 
@@ -346,10 +399,10 @@ ipcMain.handle('check-pending-attendance', async () => {
     today.setHours(0, 0, 0, 0);
 
     for (const group of groups) {
-        if (!group.end_date || !group.class_days) continue;
+        if (!group.class_days) continue;
 
         const startDate = new Date(globalStartDate);
-        const endDate = new Date(group.end_date);
+        const endDate = new Date(globalEndDate);
         const classDays = group.class_days.split(',').map(Number);
 
         for (let d = new Date(startDate); d < today && d <= endDate; d.setDate(d.getDate() + 1)) {
