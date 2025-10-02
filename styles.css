@@ -55,6 +55,9 @@ body {
 .sidebar-header h1 {
     font-size: 1.5rem;
     font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar-menu {
@@ -70,6 +73,9 @@ body {
     color: #cbd5e1;
     font-weight: 500;
     transition: background-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sidebar-menu li a:hover {
@@ -170,6 +176,7 @@ body {
     padding: 1.5rem;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    overflow: hidden; /* Prevent children from overflowing */
 }
 
 /* Lista de Grupos */
@@ -183,6 +190,9 @@ body {
     border-radius: 6px;
     cursor: pointer;
     border: 1px solid transparent;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .item-list li:hover {
     background-color: #f1f5f9;
@@ -238,9 +248,16 @@ body {
 
 
 /* Tablas */
-.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th, .data-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+.data-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
+.data-table th, .data-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 .data-table thead { background-color: #f8fafc; }
 .data-table th { font-weight: 600; }
 .data-table .action-link { color: var(--danger-color); cursor: pointer; }
@@ -256,6 +273,7 @@ body {
     text-align: center;
     min-width: 100px;
     border: 1px solid var(--border-color);
+    white-space: normal; /* Allow wrapping in attendance cells */
 }
 #attendance-table .student-name-header,
 #attendance-table .student-name-cell {
@@ -266,6 +284,9 @@ body {
     width: 200px;
     min-width: 200px;
     text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 #attendance-table thead { position: sticky; top: 0; z-index: 3; }
 #attendance-table .partial-header { background-color: #dbeafe; }
@@ -275,6 +296,7 @@ body {
 .status-presente { color: #22c55e; }
 .status-ausente { color: #ef4444; }
 .status-retardo { color: #f97316; }
+.status-pendiente { color: #9ca3af; } /* Gris neutro */
 
 /* Modales */
 .modal-backdrop {
@@ -303,7 +325,7 @@ body {
 /* Clases de utilidad */
 .hidden { display: none !important; }
 
-/* Alertas del Dashboard */
+/* Dashboard */
 #dashboard-alerts { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }
 .alert {
     padding: 1rem;
@@ -314,6 +336,20 @@ body {
     background-color: #fffbeb;
     border-color: #f59e0b;
     color: #b45309;
+}
+.today-classes-list {
+    list-style: none;
+    padding-left: 0;
+}
+.today-classes-list li {
+    background-color: var(--card-bg);
+    padding: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* --- NOTIFICACIONES --- */
@@ -336,6 +372,8 @@ body {
     opacity: 0;
     transform: translateX(100%);
     animation: slideInNotification 0.4s ease-out forwards, fadeOutNotification 0.4s ease-in 4s forwards;
+    max-width: 320px;
+    word-wrap: break-word;
 }
 
 .notification.success {

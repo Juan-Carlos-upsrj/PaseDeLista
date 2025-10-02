@@ -234,11 +234,11 @@ document.addEventListener('DOMContentLoaded', () => {
             tableHTML += `<tr><td class="student-name-cell">${student.student_name}</td>`;
             classDates.forEach(date => {
                 const dateString = date.toISOString().split('T')[0];
-                const status = attendanceMap.get(`${student.id}-${dateString}`) || 'Presente';
+                const status = attendanceMap.get(`${student.id}-${dateString}`) || 'Pendiente';
                 const statusClass = `status-${status.toLowerCase()}`;
-                const statusIcon = {'Presente': '✅', 'Ausente': '❌', 'Retardo': '🕒'}[status];
+                const statusIcon = {'Presente': '✅', 'Ausente': '❌', 'Retardo': '🕒', 'Pendiente': '—'}[status];
 
-                tableHTML += `<td class="status-cell ${statusClass}" data-student-id="${student.id}" data-date="${dateString}">${statusIcon}</td>`;
+                tableHTML += `<td class="status-cell ${statusClass}" data-student-id="${student.id}" data-date="${dateString}" data-status="${status}">${statusIcon}</td>`;
             });
             tableHTML += '</tr>';
         });
@@ -250,10 +250,19 @@ document.addEventListener('DOMContentLoaded', () => {
     attendanceGridContainer.addEventListener('click', (e) => {
         if(e.target.classList.contains('status-cell')) {
             const cell = e.target;
-            const statuses = ['Presente', 'Ausente', 'Retardo'];
-            const currentStatus = {'✅': 'Presente', '❌': 'Ausente', '🕒': 'Retardo'}[cell.textContent];
-            const nextIndex = (statuses.indexOf(currentStatus) + 1) % statuses.length;
-            const newStatus = statuses[nextIndex];
+            const currentStatus = cell.dataset.status;
+            let newStatus;
+
+            // Definir el ciclo de clics
+            if (currentStatus === 'Pendiente') {
+                newStatus = 'Presente';
+            } else if (currentStatus === 'Presente') {
+                newStatus = 'Retardo';
+            } else if (currentStatus === 'Retardo') {
+                newStatus = 'Ausente';
+            } else { // Ausente
+                newStatus = 'Presente';
+            }
 
             const attendance = {
                 studentId: cell.dataset.studentId,
@@ -261,10 +270,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: newStatus
             };
 
+            // Actualizar DB
             window.api.setAttendance(attendance);
 
-            cell.textContent = {'Presente': '✅', 'Ausente': '❌', 'Retardo': '🕒'}[newStatus];
+            // Actualizar UI
+            const statusIconMap = {'Presente': '✅', 'Ausente': '❌', 'Retardo': '🕒', 'Pendiente': '—'};
+            cell.textContent = statusIconMap[newStatus];
             cell.className = `status-cell status-${newStatus.toLowerCase()}`;
+            cell.dataset.status = newStatus;
         }
     });
 
