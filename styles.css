@@ -209,6 +209,7 @@ body {
 .form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; }
 .form-group input[type="text"],
 .form-group input[type="date"],
+.form-group input[type="search"],
 .form-group select {
     width: 100%;
     padding: 0.5rem;
@@ -265,13 +266,22 @@ body {
     background-color: #fffbeb; /* Amarillo pálido */
 }
 
+/* Tabla de Reportes - Columnas específicas */
+.report-table .student-name-col {
+    width: 40%;
+}
+.report-table .number-col {
+    width: 12%;
+    text-align: center;
+}
+
+
 /* Tabla de Asistencia */
 .table-container { overflow: auto; max-height: calc(100vh - 12rem); background: var(--card-bg); border-radius: 8px; }
 #attendance-table { width: 100%; border-collapse: collapse; }
 #attendance-table th, #attendance-table td {
     padding: 0.5rem;
     text-align: center;
-    min-width: 100px;
     border: 1px solid var(--border-color);
     white-space: normal; /* Allow wrapping in attendance cells */
 }
@@ -290,9 +300,19 @@ body {
 }
 #attendance-table thead { position: sticky; top: 0; z-index: 3; }
 #attendance-table .partial-header { background-color: #dbeafe; }
-#attendance-table .date-header { background-color: #f1f5f9; }
+#attendance-table .date-header {
+    background-color: #f1f5f9;
+    min-width: 60px; /* More compact date headers */
+    font-size: 0.8rem;
+    padding: 0.4rem 0.2rem;
+}
 
-.status-cell { font-size: 1.5rem; cursor: pointer; user-select: none; }
+.status-cell {
+    font-size: 1.1rem; /* More compact status icons */
+    font-weight: bold;
+    cursor: pointer;
+    user-select: none;
+}
 .status-presente { color: #22c55e; }
 .status-ausente { color: #ef4444; }
 .status-retardo { color: #f97316; }

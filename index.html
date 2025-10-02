@@ -79,25 +79,15 @@
                                             <input type="text" id="subject-name" required>
                                         </div>
                                     </div>
-                                    <div class="form-grid">
-                                        <div class="form-group">
-                                            <label for="start-date">Inicio de Cuatrimestre</label>
-                                            <input type="date" id="start-date" required>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="end-date">Fin de Cuatrimestre</label>
-                                            <input type="date" id="end-date" required>
-                                        </div>
+                                    <div class="form-group">
+                                        <label for="end-date">Fin de Cuatrimestre</label>
+                                        <input type="date" id="end-date" required>
                                     </div>
                                     <div class="form-group">
                                         <label>Días de Clase</label>
                                         <div id="class-days-checkboxes" class="checkbox-group">
                                             <!-- Checkboxes se generan dinámicamente -->
                                         </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="partial1-end-date">Fin del Primer Parcial</label>
-                                        <input type="date" id="partial1-end-date" required>
                                     </div>
                                     <div class="form-actions">
                                         <button type="button" id="delete-group-btn" class="btn btn-danger">Eliminar</button>
@@ -142,6 +132,7 @@
                         <label for="attendance-group-select">Seleccionar Grupo</label>
                         <select id="attendance-group-select"></select>
                     </div>
+                    <button id="quick-pass-btn" class="btn btn-secondary" style="margin-left: auto;">Marcar Todos Presentes</button>
                 </div>
                 <div id="attendance-grid-container" class="table-container"></div>
             </section>
@@ -161,6 +152,10 @@
                             <option value="p2">Segundo Parcial</option>
                             <option value="all">Cuatrimestre Completo</option>
                         </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-search-input">Buscar Alumno</label>
+                        <input type="search" id="report-search-input" placeholder="Nombre del alumno...">
                     </div>
                     <button id="generate-report-btn" class="btn btn-primary">Generar Reporte</button>
                     <div class="form-actions" style="margin-top: 0; padding-top: 0;">
@@ -183,6 +178,14 @@
             <div class="form-group-toggle">
                 <label for="show-matricula-toggle">Mostrar columna "Matrícula"</label>
                 <input type="checkbox" id="show-matricula-toggle" class="toggle-switch">
+            </div>
+             <div class="form-group">
+                <label for="global-start-date">Inicio de Cuatrimestre General</label>
+                <input type="date" id="global-start-date">
+            </div>
+            <div class="form-group">
+                <label for="global-partial1-end-date">Fin del Primer Parcial General</label>
+                <input type="date" id="global-partial1-end-date">
             </div>
             <div class="modal-actions">
                 <button id="close-settings-modal-btn" class="btn btn-primary">Cerrar</button>

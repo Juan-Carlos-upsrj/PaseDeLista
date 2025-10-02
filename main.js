@@ -29,10 +29,8 @@ function createTables() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             group_name TEXT NOT NULL,
             subject_name TEXT NOT NULL,
-            start_date TEXT,
             end_date TEXT,
-            class_days TEXT,
-            partial1_end_date TEXT
+            class_days TEXT
         );
 
         CREATE TABLE IF NOT EXISTS Students (
@@ -137,17 +135,17 @@ function dbRun(sql, params = []) {
 // --- GRUPOS ---
 ipcMain.handle('get-groups', async () => await dbAll('SELECT * FROM Groups ORDER BY group_name'));
 ipcMain.handle('add-group', async (event, group) => {
-    const { name, subject, startDate, endDate, classDays, partial1EndDate } = group;
+    const { name, subject, endDate, classDays } = group;
     return await dbRun(
-        'INSERT INTO Groups (group_name, subject_name, start_date, end_date, class_days, partial1_end_date) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, subject, startDate, endDate, classDays.join(','), partial1EndDate]
+        'INSERT INTO Groups (group_name, subject_name, end_date, class_days) VALUES (?, ?, ?, ?)',
+        [name, subject, endDate, classDays.join(',')]
     );
 });
 ipcMain.handle('update-group', async (event, group) => {
-    const { id, name, subject, startDate, endDate, classDays, partial1EndDate } = group;
+    const { id, name, subject, endDate, classDays } = group;
     return await dbRun(
-        'UPDATE Groups SET group_name = ?, subject_name = ?, start_date = ?, end_date = ?, class_days = ?, partial1_end_date = ? WHERE id = ?',
-        [name, subject, startDate, endDate, classDays.join(','), partial1EndDate, id]
+        'UPDATE Groups SET group_name = ?, subject_name = ?, end_date = ?, class_days = ? WHERE id = ?',
+        [name, subject, endDate, classDays.join(','), id]
     );
 });
 ipcMain.handle('delete-group', async (event, id) => await dbRun('DELETE FROM Groups WHERE id = ?', [id]));
@@ -313,43 +311,54 @@ ipcMain.handle('export-pdf', async (event, data) => {
 
 // --- LÓGICA DEL DASHBOARD ---
 ipcMain.handle('get-today-classes', async () => {
+    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key = "globalStartDate"');
+    const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
+
+    if (!globalStartDate) {
+        return []; // No start date configured, so no classes today.
+    }
+
     const today = new Date();
     const todayString = today.toISOString().split('T')[0];
-    const dayOfWeek = today.getDay(); // Domingo: 0, Lunes: 1, etc.
+    const dayOfWeek = today.getDay();
 
-    // Consulta para obtener grupos que están activos y tienen clase hoy.
     const sql = `
         SELECT group_name, subject_name
         FROM Groups
-        WHERE ? BETWEEN start_date AND end_date
+        WHERE ? >= ? AND ? <= end_date
           AND class_days LIKE ?
     `;
 
-    // El patrón LIKE busca el número del día de la semana entre comas o al inicio/final.
-    return await dbAll(sql, [todayString, `%${dayOfWeek}%`]);
+    return await dbAll(sql, [todayString, globalStartDate, todayString, `%${dayOfWeek}%`]);
 });
 
 ipcMain.handle('check-pending-attendance', async () => {
+    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key = "globalStartDate"');
+    const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
+
+    if (!globalStartDate) {
+        return [];
+    }
+
     const groups = await dbAll('SELECT * FROM Groups');
-    const pendingNotifications = [];
+    const pendingGroups = new Set();
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalizar a la medianoche
+    today.setHours(0, 0, 0, 0);
 
     for (const group of groups) {
-        if (!group.start_date || !group.end_date || !group.class_days) continue;
+        if (!group.end_date || !group.class_days) continue;
 
-        const startDate = new Date(group.start_date);
+        const startDate = new Date(globalStartDate);
+        const endDate = new Date(group.end_date);
         const classDays = group.class_days.split(',').map(Number);
-        
-        // Iterar desde el inicio de clases hasta ayer
-        for (let d = startDate; d < today; d.setDate(d.getDate() + 1)) {
-            const currentDate = new Date(d); // Clonar fecha para no modificar la original
-            const dayOfWeek = currentDate.getDay();
+
+        for (let d = new Date(startDate); d < today && d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dayOfWeek = d.getDay();
 
             if (classDays.includes(dayOfWeek)) {
-                const dateString = currentDate.toISOString().split('T')[0];
+                const dateString = d.toISOString().split('T')[0];
                 const sql = `
-                    SELECT COUNT(*) as count 
+                    SELECT COUNT(*) as count
                     FROM Attendance a
                     JOIN Students s ON s.id = a.student_id
                     WHERE s.group_id = ? AND a.attendance_date = ?`;
@@ -360,15 +369,13 @@ ipcMain.handle('check-pending-attendance', async () => {
                         else resolve(row);
                     });
                 });
-                
+
                 if (result.count === 0) {
-                     pendingNotifications.push({
-                        groupName: `${group.group_name} - ${group.subject_name}`,
-                        date: dateString
-                    });
+                    pendingGroups.add(`${group.group_name} - ${group.subject_name}`);
+                    break;
                 }
             }
         }
     }
-    return pendingNotifications;
+    return Array.from(pendingGroups);
 });

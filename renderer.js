@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentView: 'inicio',
         selectedGroupId: null,
         groups: [],
-        settings: {},
+        settings: {}, // Will hold showMatricula, globalStartDate, globalPartial1EndDate
         reportData: null
     };
 
@@ -84,9 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         groupForm.querySelector('#group-id').value = group.id;
         groupForm.querySelector('#group-name').value = group.group_name;
         groupForm.querySelector('#subject-name').value = group.subject_name;
-        groupForm.querySelector('#start-date').value = group.start_date;
         groupForm.querySelector('#end-date').value = group.end_date;
-        groupForm.querySelector('#partial1-end-date').value = group.partial1_end_date;
 
         const classDays = group.class_days ? group.class_days.split(',').map(Number) : [];
         document.querySelectorAll('#class-days-checkboxes input').forEach(cb => {
@@ -106,9 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const groupData = {
             name: document.getElementById('group-name').value,
             subject: document.getElementById('subject-name').value,
-            startDate: document.getElementById('start-date').value,
             endDate: document.getElementById('end-date').value,
-            partial1EndDate: document.getElementById('partial1-end-date').value,
             classDays: classDays
         };
 
@@ -187,6 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DE ASISTENCIA ---
+    const statusIconMap = {'Presente': 'P', 'Ausente': 'A', 'Retardo': 'R', 'Pendiente': '—'};
+
     attendanceGroupSelect.addEventListener('change', () => {
         const groupId = parseInt(attendanceGroupSelect.value);
         if (groupId) {
@@ -198,6 +196,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function renderAttendanceGrid(groupId) {
         attendanceGridContainer.innerHTML = 'Cargando...';
+
+        const { globalStartDate } = state.settings;
+        if (!globalStartDate) {
+            attendanceGridContainer.innerHTML = '<p>Por favor, establece la "Fecha de Inicio de Cuatrimestre" en la Configuración Global para continuar.</p>';
+            return;
+        }
+
         const group = await window.api.getGroupById(groupId);
         const students = await window.api.getStudents(groupId);
         const attendanceData = await window.api.getAttendance(groupId);
@@ -207,17 +212,17 @@ document.addEventListener('DOMContentLoaded', () => {
             attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status);
         });
 
-        if (!group.start_date || !group.end_date || !group.class_days) {
-            attendanceGridContainer.innerHTML = '<p>Este grupo no tiene configuradas las fechas o días de clase.</p>';
+        if (!group.end_date || !group.class_days) {
+            attendanceGridContainer.innerHTML = '<p>Este grupo no tiene configuradas la fecha de fin de cuatrimestre o los días de clase.</p>';
             return;
         }
 
         const classDates = [];
         const classDays = group.class_days.split(',').map(Number);
-        const startDate = new Date(group.start_date + 'T00:00:00');
+        const startDate = new Date(globalStartDate + 'T00:00:00');
         const endDate = new Date(group.end_date + 'T00:00:00');
 
-        for (let d = startDate; d <= endDate; d.setDate(d.getDate() + 1)) {
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
             if (classDays.includes(d.getDay())) {
                 classDates.push(new Date(d));
             }
@@ -236,7 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const dateString = date.toISOString().split('T')[0];
                 const status = attendanceMap.get(`${student.id}-${dateString}`) || 'Pendiente';
                 const statusClass = `status-${status.toLowerCase()}`;
-                const statusIcon = {'Presente': '✅', 'Ausente': '❌', 'Retardo': '🕒', 'Pendiente': '—'}[status];
+                const statusIcon = statusIconMap[status];
 
                 tableHTML += `<td class="status-cell ${statusClass}" data-student-id="${student.id}" data-date="${dateString}" data-status="${status}">${statusIcon}</td>`;
             });
@@ -253,7 +258,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentStatus = cell.dataset.status;
             let newStatus;
 
-            // Definir el ciclo de clics
             if (currentStatus === 'Pendiente') {
                 newStatus = 'Presente';
             } else if (currentStatus === 'Presente') {
@@ -270,15 +274,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: newStatus
             };
 
-            // Actualizar DB
             window.api.setAttendance(attendance);
 
-            // Actualizar UI
-            const statusIconMap = {'Presente': '✅', 'Ausente': '❌', 'Retardo': '🕒', 'Pendiente': '—'};
             cell.textContent = statusIconMap[newStatus];
             cell.className = `status-cell status-${newStatus.toLowerCase()}`;
             cell.dataset.status = newStatus;
         }
+    });
+
+    document.getElementById('quick-pass-btn').addEventListener('click', async () => {
+        const pendingCells = document.querySelectorAll('.status-cell[data-status="Pendiente"]');
+        if (pendingCells.length === 0) {
+            showNotification('No hay alumnos pendientes para marcar.', 'error');
+            return;
+        }
+
+        for (const cell of pendingCells) {
+            const attendance = {
+                studentId: cell.dataset.studentId,
+                date: cell.dataset.date,
+                status: 'Presente'
+            };
+            await window.api.setAttendance(attendance);
+
+            cell.textContent = statusIconMap['Presente'];
+            cell.className = 'status-cell status-presente';
+            cell.dataset.status = 'Presente';
+        }
+        showNotification(`${pendingCells.length} alumnos marcados como "Presente".`);
     });
 
     // --- LÓGICA DE REPORTES ---
@@ -286,8 +309,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportResultsContainer = document.getElementById('report-results-container');
     const exportCsvBtn = document.getElementById('export-csv-btn');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
+    const reportSearchInput = document.getElementById('report-search-input');
 
     generateReportBtn.addEventListener('click', generateReport);
+    reportSearchInput.addEventListener('input', () => renderReportTable(state.reportData));
+
+
+    function renderReportTable(data) {
+        if (!data) {
+            reportResultsContainer.innerHTML = '<p>No hay datos de reporte para mostrar. Genera un reporte primero.</p>';
+            return;
+        }
+
+        const searchTerm = reportSearchInput.value.toLowerCase();
+        const filteredData = data.filter(row => row.studentName.toLowerCase().includes(searchTerm));
+
+        if (filteredData.length === 0) {
+            reportResultsContainer.innerHTML = '<p>No se encontraron alumnos que coincidan con la búsqueda.</p>';
+            return;
+        }
+
+        let tableHTML = `<table class="data-table report-table">
+            <thead>
+                <tr>
+                    <th class="matricula-col">Matrícula</th>
+                    <th class="student-name-col">Alumno</th>
+                    <th class="number-col">Asist.</th>
+                    <th class="number-col">Ret.</th>
+                    <th class="number-col">Faltas</th>
+                    <th class="number-col">% Asist.</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        filteredData.forEach(res => {
+            const lowAttendanceClass = res.percentage <= 80.0 ? 'low-attendance-row' : '';
+            tableHTML += `<tr class="${lowAttendanceClass}">
+                <td class="matricula-col">${res.studentId || ''}</td>
+                <td class="student-name-col">${res.studentName}</td>
+                <td class="number-col">${res.presente}</td>
+                <td class="number-col">${res.retardo}</td>
+                <td class="number-col">${res.ausente}</td>
+                <td class="number-col">${res.percentage}%</td>
+            </tr>`;
+        });
+
+        tableHTML += '</tbody></table>';
+        reportResultsContainer.innerHTML = tableHTML;
+        applyMatriculaVisibility();
+    }
 
     exportCsvBtn.addEventListener('click', async () => {
         if (state.reportData) {
@@ -314,9 +384,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function generateReport() {
         const groupId = document.getElementById('report-group-select').value;
         const period = document.getElementById('report-period-select').value;
+        const { globalStartDate, globalPartial1EndDate } = state.settings;
+
+        reportSearchInput.value = '';
 
         if (!groupId) {
             showNotification('Por favor, selecciona un grupo.', 'error');
+            return;
+        }
+        if (!globalStartDate || !globalPartial1EndDate) {
+            showNotification('Por favor, configura las fechas globales de inicio y fin de parcial en la Configuración Global.', 'error');
             return;
         }
 
@@ -329,14 +406,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const students = await window.api.getStudents(groupId);
         const attendanceData = await window.api.getAttendance(groupId);
 
-        if (!group.start_date || !group.end_date || !group.class_days || !group.partial1_end_date) {
-            reportResultsContainer.innerHTML = '<p>El grupo seleccionado no tiene todas las fechas configuradas (inicio, fin, fin de primer parcial).</p>';
+        if (!group.end_date || !group.class_days) {
+            reportResultsContainer.innerHTML = '<p>El grupo seleccionado no tiene configurada la fecha de fin o los días de clase.</p>';
             return;
         }
 
-        const groupStartDate = new Date(group.start_date + 'T00:00:00');
+        const groupStartDate = new Date(globalStartDate + 'T00:00:00');
         const groupEndDate = new Date(group.end_date + 'T00:00:00');
-        const partial1EndDate = new Date(group.partial1_end_date + 'T00:00:00');
+        const partial1EndDate = new Date(globalPartial1EndDate + 'T00:00:00');
 
         let periodStartDate, periodEndDate;
         if (period === 'p1') {
@@ -392,34 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         state.reportData = reportResults;
 
-        let tableHTML = `<table class="data-table">
-            <thead>
-                <tr>
-                    <th class="matricula-col">Matrícula</th>
-                    <th>Alumno</th>
-                    <th>Asistencias</th>
-                    <th>Retardos</th>
-                    <th>Faltas</th>
-                    <th>% Asistencia</th>
-                </tr>
-            </thead>
-            <tbody>`;
-
-        reportResults.forEach(res => {
-            const lowAttendanceClass = res.percentage <= 80.0 ? 'low-attendance-row' : '';
-            tableHTML += `<tr class="${lowAttendanceClass}">
-                <td class="matricula-col">${res.studentId || ''}</td>
-                <td>${res.studentName}</td>
-                <td>${res.presente}</td>
-                <td>${res.retardo}</td>
-                <td>${res.ausente}</td>
-                <td>${res.percentage}%</td>
-            </tr>`;
-        });
-
-        tableHTML += '</tbody></table>';
-        reportResultsContainer.innerHTML = tableHTML;
-        applyMatriculaVisibility();
+        renderReportTable(state.reportData);
 
         exportCsvBtn.disabled = false;
         exportPdfBtn.disabled = false;
@@ -428,15 +478,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- LÓGICA DE CONFIGURACIÓN ---
     const settingsModal = document.getElementById('settings-modal');
     const matriculaToggle = document.getElementById('show-matricula-toggle');
+    const globalStartDateInput = document.getElementById('global-start-date');
+    const globalPartial1EndDateInput = document.getElementById('global-partial1-end-date');
 
     document.getElementById('settings-btn').addEventListener('click', () => settingsModal.classList.remove('hidden'));
     document.getElementById('close-settings-modal-btn').addEventListener('click', () => settingsModal.classList.add('hidden'));
 
     matriculaToggle.addEventListener('change', async () => {
         const isChecked = matriculaToggle.checked;
-        await window.api.saveSetting({ key: 'showMatricula', value: isChecked });
-        state.settings.showMatricula = isChecked;
+        state.settings.showMatricula = isChecked.toString();
+        await window.api.saveSetting({ key: 'showMatricula', value: state.settings.showMatricula });
         applyMatriculaVisibility();
+    });
+
+    globalStartDateInput.addEventListener('change', async () => {
+        const value = globalStartDateInput.value;
+        state.settings.globalStartDate = value;
+        await window.api.saveSetting({ key: 'globalStartDate', value });
+    });
+
+    globalPartial1EndDateInput.addEventListener('change', async () => {
+        const value = globalPartial1EndDateInput.value;
+        state.settings.globalPartial1EndDate = value;
+        await window.api.saveSetting({ key: 'globalPartial1EndDate', value });
     });
 
     function applyMatriculaVisibility() {
@@ -450,6 +514,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const settings = await window.api.getSettings();
         state.settings = settings;
         matriculaToggle.checked = settings.showMatricula === 'true';
+        globalStartDateInput.value = settings.globalStartDate || '';
+        globalPartial1EndDateInput.value = settings.globalPartial1EndDate || '';
         applyMatriculaVisibility();
     }
 
@@ -544,13 +610,18 @@ document.addEventListener('DOMContentLoaded', () => {
     async function checkPendingAttendance() {
         const alertsContainer = document.getElementById('dashboard-alerts');
         alertsContainer.innerHTML = '';
-        const notifications = await window.api.checkPendingAttendance();
-        notifications.forEach(noti => {
+        const pendingGroups = await window.api.checkPendingAttendance();
+
+        if (pendingGroups && pendingGroups.length > 0) {
             const alertDiv = document.createElement('div');
             alertDiv.className = 'alert alert-warning';
-            alertDiv.innerHTML = `<p><strong>Recordatorio:</strong> Parece que no se registró la asistencia para <strong>${noti.groupName}</strong> el día ${noti.date}.</p>`;
+            let groupListHTML = pendingGroups.map(name => `<li>${name}</li>`).join('');
+            alertDiv.innerHTML = `
+                <p><strong>Recordatorio:</strong> Tienes asistencias pendientes de registrar para los siguientes grupos:</p>
+                <ul>${groupListHTML}</ul>
+            `;
             alertsContainer.appendChild(alertDiv);
-        });
+        }
     }
 
     // --- INICIALIZACIÓN Y HELPERS ---
