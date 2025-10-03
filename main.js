@@ -6,21 +6,23 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 // --- CONFIGURACIÓN DE LA BASE DE DATOS ---
-// Apuntando directamente a la ubicación de la base de datos confirmada por el usuario para recuperar los datos.
-// Esta es una solución específica para el usuario.
-const dbPath = path.join(path.dirname(app.getPath('cache')), 'Programs', 'asistencia-iaev', 'asistencia_pro.db');
+// Establece la ubicación de la base de datos en la carpeta de Documentos del usuario para un acceso fácil y seguro.
+const dataPath = path.join(app.getPath('documents'), 'AsistenciaApp-Data');
 
-// Verificar si el archivo de la base de datos existe antes de intentar conectarse.
-if (!fs.existsSync(dbPath)) {
-    const errorMsg = `La base de datos no se encontró en la ruta esperada: ${dbPath}\n\nAsegúrese de que el archivo 'asistencia_pro.db' exista en esa ubicación. La aplicación se cerrará.`;
-    console.error(errorMsg);
-    // Es posible que el diálogo no se muestre si la aplicación se cierra demasiado rápido,
-    // pero el log de la consola será útil.
-    dialog.showErrorBox('Error Crítico de Base de Datos', errorMsg);
-    app.quit();
-    // Salir del proceso para evitar más errores.
-    process.exit(1);
+// Asegurarse de que el directorio de datos exista.
+if (!fs.existsSync(dataPath)) {
+    try {
+        fs.mkdirSync(dataPath, { recursive: true });
+        console.log(`Directorio de datos creado en: ${dataPath}`);
+    } catch (err) {
+        console.error('Error al crear el directorio de datos:', err);
+        dialog.showErrorBox('Error Crítico', `No se pudo crear la carpeta de datos en ${dataPath}. La aplicación se cerrará.`);
+        app.quit();
+        process.exit(1);
+    }
 }
+
+const dbPath = path.join(dataPath, 'asistencia.db');
 
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
@@ -32,7 +34,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run("PRAGMA foreign_keys = ON;", (pragmaErr) => {
             if (pragmaErr) console.error("Error habilitando PRAGMA foreign_keys", pragmaErr.message);
         });
-        // Solo crear tablas si no existen.
         createTables();
     }
 });
