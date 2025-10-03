@@ -6,7 +6,15 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 // --- CONFIGURACIÓN DE LA BASE DE DATOS ---
-const dbPath = path.join(app.getPath('userData'), 'asistencia_pro.db');
+// Forza el uso de la carpeta de datos del nombre original para no perder datos.
+const oldUserDataPath = path.join(app.getPath('appData'), 'Asistencia Pro');
+
+// Asegurarse de que el directorio de datos exista.
+if (!fs.existsSync(oldUserDataPath)) {
+    fs.mkdirSync(oldUserDataPath, { recursive: true });
+}
+
+const dbPath = path.join(oldUserDataPath, 'asistencia_pro.db');
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error abriendo la base de datos", err.message);
