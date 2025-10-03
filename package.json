@@ -21,7 +21,7 @@
   },
   "build": {
     "appId": "com.docente.asistenciapro",
-    "productName": "Asistencia Pro",
+    "productName": "Asistencias IAEV",
     "files": [
       "**/*"
     ],
