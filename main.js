@@ -5,95 +5,86 @@ const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
-// --- CONFIGURACIÓN DE LA BASE DE DATOS ---
-// Forza el uso de la carpeta de datos del nombre original para no perder datos.
-const oldUserDataPath = path.join(app.getPath('appData'), 'Asistencia Pro');
+// --- CONFIGURACIÓN DE LA BASE DE DATOS Y MIGRACIÓN ÚNICA ---
 
-// Asegurarse de que el directorio de datos exista.
-if (!fs.existsSync(oldUserDataPath)) {
-    fs.mkdirSync(oldUserDataPath, { recursive: true });
+// 1. Definir la ruta de datos permanente y neutral.
+const permanentDataPath = path.join(app.getPath('appData'), 'AsistenciaApp-Data');
+const dbPath = path.join(permanentDataPath, 'asistencia.db');
+const migrationLockFile = path.join(permanentDataPath, '.migrated');
+
+// 2. Realizar la migración de la ubicación de la base de datos si es necesario.
+// Esta función se ejecuta de forma síncrona al inicio para garantizar que la BD esté en su sitio antes de conectarse.
+function runDataLocationMigration() {
+    if (fs.existsSync(migrationLockFile)) {
+        console.log('La migración de la ubicación de datos ya se realizó. Omitiendo.');
+        return;
+    }
+
+    if (!fs.existsSync(permanentDataPath)) {
+        fs.mkdirSync(permanentDataPath, { recursive: true });
+    }
+
+    const appData = app.getPath('appData');
+    const oldDbPaths = [
+        path.join(appData, 'Asistencia Pro', 'asistencia_pro.db'),
+        path.join(appData, 'Asistencias IAEV', 'asistencia_pro.db')
+    ];
+
+    let sourceDbPath = null;
+    let mostRecentTime = 0;
+
+    oldDbPaths.forEach(p => {
+        if (fs.existsSync(p)) {
+            try {
+                const stats = fs.statSync(p);
+                if (stats.mtimeMs > mostRecentTime) {
+                    mostRecentTime = stats.mtimeMs;
+                    sourceDbPath = p;
+                }
+            } catch (err) {
+                console.error(`Error al acceder a la base de datos antigua en ${p}:`, err);
+            }
+        }
+    });
+
+    if (sourceDbPath) {
+        console.log(`Migrando la base de datos más reciente desde: ${sourceDbPath}`);
+        try {
+            fs.copyFileSync(sourceDbPath, dbPath);
+            console.log('Base de datos migrada a la nueva ubicación permanente con éxito.');
+        } catch (err) {
+            console.error('Error al migrar el archivo de la base de datos:', err);
+            return;
+        }
+    } else {
+        console.log('No se encontraron bases de datos antiguas. Se creará una nueva si es necesario.');
+    }
+
+    try {
+        fs.writeFileSync(migrationLockFile, new Date().toISOString());
+    } catch (err) {
+        console.error('Error al crear el archivo de bloqueo de migración:', err);
+    }
 }
 
-const dbPath = path.join(oldUserDataPath, 'asistencia_pro.db');
+// Ejecutar la migración de ubicación ANTES de cualquier otra cosa.
+runDataLocationMigration();
+
+// 3. Conectar a la base de datos en la ubicación permanente.
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error abriendo la base de datos", err.message);
     } else {
-        console.log("Conectado a la base de datos SQLite.");
+        console.log("Conectado a la base de datos SQLite en la ubicación permanente.");
         db.run("PRAGMA foreign_keys = ON;", (pragmaErr) => {
             if (pragmaErr) console.error("Error habilitando PRAGMA foreign_keys", pragmaErr.message);
         });
-        // Crear tablas y luego correr migraciones
-        createTables().then(runMigrations);
+        // Solo crear tablas si no existen. No se hacen más migraciones de esquema.
+        createTables();
     }
 });
 
-async function runMigrations() {
-    console.log('Verificando migraciones de la base de datos...');
-    const targetVersion = 1;
-
-    try {
-        await dbRun('BEGIN TRANSACTION');
-
-        let { user_version } = await new Promise((resolve, reject) => {
-            db.get('PRAGMA user_version;', (err, row) => err ? reject(err) : resolve(row));
-        });
-
-        console.log(`Versión actual de la BD: ${user_version}`);
-
-        if (user_version < 1) {
-            console.log('Aplicando migración a v1...');
-
-            // Comprobar si la tabla Groups tiene el esquema antiguo
-            const columns = await dbAll(`PRAGMA table_info(Groups);`);
-            const hasOldSchema = columns.some(col => col.name === 'start_date');
-
-            if (hasOldSchema) {
-                console.log('Detectado esquema antiguo. Migrando datos de fecha...');
-
-                // 1. Obtener las fechas del primer grupo para usarlas como globales
-                const firstGroupWithDates = await dbAll(`SELECT start_date, end_date, partial1_end_date FROM Groups WHERE start_date IS NOT NULL AND end_date IS NOT NULL LIMIT 1`);
-                if (firstGroupWithDates.length > 0) {
-                    const { start_date, end_date, partial1_end_date } = firstGroupWithDates[0];
-                    await dbRun(`INSERT OR REPLACE INTO Settings (key, value) VALUES (?, ?), (?, ?), (?, ?)`, [
-                        'globalStartDate', start_date,
-                        'globalEndDate', end_date,
-                        'globalPartial1EndDate', partial1_end_date
-                    ]);
-                    console.log('Fechas de grupo migradas a configuración global.');
-                }
-
-                // 2. Recrear la tabla Groups sin las columnas de fecha
-                await dbRun(`CREATE TABLE Groups_backup AS SELECT id, group_name, subject_name, class_days FROM Groups;`);
-                await dbRun(`DROP TABLE Groups;`);
-                await dbRun(`
-                    CREATE TABLE Groups (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        group_name TEXT NOT NULL,
-                        subject_name TEXT NOT NULL,
-                        class_days TEXT
-                    );
-                `);
-                await dbRun(`INSERT INTO Groups (id, group_name, subject_name, class_days) SELECT id, group_name, subject_name, class_days FROM Groups_backup;`);
-                await dbRun(`DROP TABLE Groups_backup;`);
-                console.log('Tabla Groups recreada con el nuevo esquema.');
-            }
-
-            // 3. Actualizar la versión de la base de datos
-            await dbRun(`PRAGMA user_version = 1`);
-            console.log('Migración a v1 completada.');
-        }
-
-        await dbRun('COMMIT');
-        console.log('Verificación de migraciones completada.');
-    } catch (err) {
-        console.error('Error durante la migración:', err.message);
-        await dbRun('ROLLBACK');
-    }
-}
-
-
-// Función para crear las tablas de la base de datos.
+// Función para crear las tablas de la base de datos si no existen.
 function createTables() {
     const sql = `
         CREATE TABLE IF NOT EXISTS Groups (
@@ -137,7 +128,6 @@ function createTables() {
         });
     });
 }
-
 
 // --- GESTIÓN DE LA VENTANA PRINCIPAL ---
 function createWindow() {
