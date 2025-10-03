@@ -26,5 +26,5 @@ contextBridge.exposeInMainWorld('api', {
     saveSetting: (setting) => ipcRenderer.invoke('save-setting', setting),
     
     // Funciones para el Dashboard
-    checkPendingAttendance: () => ipcRenderer.invoke('check-pending-attendance'),
+    getDashboardInfo: () => ipcRenderer.invoke('getDashboardInfo'),
 });

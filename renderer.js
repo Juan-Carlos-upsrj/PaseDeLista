@@ -54,8 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sectionId === 'asistencia') loadGroupsForSelect(attendanceGroupSelect, true);
         if (sectionId === 'reportes') loadGroupsForSelect(document.getElementById('report-group-select'), true);
         if (sectionId === 'inicio') {
-            checkPendingAttendance();
-            loadTodayClasses();
+            loadDashboard();
         }
     }
 
@@ -205,7 +204,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Remove previous listener before adding a new one to prevent duplicates
     let lastScrollListener = null;
     attendanceGridContainer.removeEventListener('scroll', lastScrollListener);
     lastScrollListener = () => renderVisibleGrid();
@@ -250,10 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         state.virtualGrid.students = students;
         state.virtualGrid.classDates = classDates;
-        state.virtualGrid.colWidth = 60; // More compact
-        state.virtualGrid.rowHeight = 35; // More compact
+        state.virtualGrid.colWidth = 60;
+        state.virtualGrid.rowHeight = 35;
 
-        attendanceGridContainer.innerHTML = ''; // Clear loading message
+        attendanceGridContainer.innerHTML = '';
         const content = document.createElement('div');
         content.className = 'attendance-grid-content';
         content.style.width = `${classDates.length * state.virtualGrid.colWidth + 200}px`;
@@ -276,22 +274,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const firstRow = Math.max(0, Math.floor(scrollTop / rowHeight));
         const lastRow = Math.min(data.length, Math.ceil((scrollTop + viewportHeight) / rowHeight));
 
-        // Render a bit beyond the viewport for smoother scrolling
         const firstCol = Math.max(0, Math.floor(scrollLeft / colWidth));
         const lastCol = Math.min(classDates.length, Math.ceil((scrollLeft + viewportWidth) / colWidth) + 1);
 
         const fragment = document.createDocumentFragment();
 
-        // --- Render Header ---
         const header = document.createElement('div');
         header.className = 'attendance-grid-header';
-        header.style.width = `${200 + classDates.length * colWidth}px`; // Set full width for the flex container
+        header.style.width = `${200 + classDates.length * colWidth}px`;
 
         const studentHeaderCell = document.createElement('div');
         studentHeaderCell.className = 'attendance-grid-cell student-name-cell';
         studentHeaderCell.textContent = 'Alumno';
         studentHeaderCell.style.width = '200px';
-        studentHeaderCell.style.position = 'sticky'; // Make the student header cell sticky
+        studentHeaderCell.style.position = 'sticky';
         studentHeaderCell.style.left = '0';
         header.appendChild(studentHeaderCell);
 
@@ -306,22 +302,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         fragment.appendChild(header);
 
-        // --- Render Data Cells ---
         for (let i = firstRow; i < lastRow; i++) {
             const student = students[i];
             const top = i * rowHeight;
 
-            // Student Name Cell (positioned absolutely, stuck to the left via JS)
             const nameCell = document.createElement('div');
             nameCell.className = 'attendance-grid-cell student-name-cell';
             nameCell.textContent = student.student_name;
             nameCell.style.width = '200px';
             nameCell.style.height = `${rowHeight}px`;
             nameCell.style.top = `${top}px`;
-            nameCell.style.left = `${scrollLeft}px`; // Sticks to the viewport left
+            nameCell.style.left = `${scrollLeft}px`;
             fragment.appendChild(nameCell);
 
-            // Attendance Data Cells (positioned absolutely)
             for (let j = firstCol; j < lastCol; j++) {
                 const status = data[i][j];
                 const cell = document.createElement('div');
@@ -340,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        content.innerHTML = ''; // Clear previous render
+        content.innerHTML = '';
         content.appendChild(fragment);
     }
 
@@ -375,9 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data, students, classDates } = state.virtualGrid;
 
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize to midnight
+        today.setHours(0, 0, 0, 0);
 
-        // Find the index for today's date
         const todayIndex = classDates.findIndex(d => d.getTime() === today.getTime());
 
         if (todayIndex === -1) {
@@ -390,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const promises = [];
 
         for (let i = 0; i < data.length; i++) {
-            // Check only the column for today's date
             if (data[i][todayIndex] === 'Pendiente') {
                 const studentId = students[i].id;
                 promises.push(window.api.setAttendance({ studentId, date: todayDateString, status: 'Presente' }));
@@ -401,7 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (updates > 0) {
             await Promise.all(promises);
-            renderVisibleGrid(); // Corrected function call
+            renderVisibleGrid();
             showNotification(`${updates} alumnos marcados como "Presente" para hoy.`);
         } else {
             showNotification('No hay alumnos pendientes para marcar en la fecha de hoy.', 'error');
@@ -409,7 +400,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DE REPORTES ---
-    // ... (El resto del código permanece igual)
     const generateReportBtn = document.getElementById('generate-report-btn');
     const reportResultsContainer = document.getElementById('report-results-container');
     const exportCsvBtn = document.getElementById('export-csv-btn');
@@ -418,7 +408,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     generateReportBtn.addEventListener('click', generateReport);
     reportSearchInput.addEventListener('input', () => renderReportTable(state.reportData));
-
 
     function renderReportTable(data) {
         if (!data) {
@@ -573,9 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         state.reportData = reportResults;
-
         renderReportTable(state.reportData);
-
         exportCsvBtn.disabled = false;
         exportPdfBtn.disabled = false;
     }
@@ -702,40 +689,83 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DEL DASHBOARD ---
-    async function loadTodayClasses() {
-        const list = document.getElementById('today-classes-list');
-        const classes = await window.api.getTodayClasses();
-        if (classes.length === 0) {
-            list.innerHTML = '<p>No hay clases programadas para hoy.</p>';
-            return;
+    function createClassCard(group, isInteractive = false) {
+        const card = document.createElement('div');
+        card.className = 'class-card';
+        if (isInteractive) {
+            card.classList.add('interactive');
+            card.dataset.groupId = group.id;
         }
-        list.innerHTML = '';
-        const ul = document.createElement('ul');
-        ul.className = 'today-classes-list';
-        classes.forEach(c => {
-            const li = document.createElement('li');
-            li.textContent = `${c.group_name} - ${c.subject_name}`;
-            ul.appendChild(li);
-        });
-        list.appendChild(ul);
+
+        card.innerHTML = `
+            <h4>${group.group_name}</h4>
+            <p>${group.subject_name}</p>
+        `;
+        return card;
     }
 
-    async function checkPendingAttendance() {
-        const alertsContainer = document.getElementById('dashboard-alerts');
-        alertsContainer.innerHTML = '';
-        const pendingGroups = await window.api.checkPendingAttendance();
+    async function loadDashboard() {
+        const todayCardsContainer = document.getElementById('today-classes-cards');
+        const futureContentContainer = document.getElementById('future-classes-content');
 
-        if (pendingGroups && pendingGroups.length > 0) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-warning';
-            let groupListHTML = pendingGroups.map(name => `<li>${name}</li>`).join('');
-            alertDiv.innerHTML = `
-                <p><strong>Recordatorio:</strong> Tienes asistencias pendientes de registrar para los siguientes grupos:</p>
-                <ul>${groupListHTML}</ul>
-            `;
-            alertsContainer.appendChild(alertDiv);
+        todayCardsContainer.innerHTML = '<p>Cargando...</p>';
+        futureContentContainer.innerHTML = '';
+
+        const info = await window.api.getDashboardInfo();
+
+        // Render Today's Classes
+        todayCardsContainer.innerHTML = '';
+        if (info.today.length > 0) {
+            info.today.forEach(group => {
+                const card = createClassCard(group, true);
+                todayCardsContainer.appendChild(card);
+            });
+        } else {
+            todayCardsContainer.innerHTML = '<p>No hay clases programadas para hoy.</p>';
+        }
+
+        // Render Future Classes
+        futureContentContainer.innerHTML = '';
+        if (info.tomorrow.length > 0) {
+            futureContentContainer.innerHTML = '<h4>Mañana</h4>';
+            const tomorrowCardsContainer = document.createElement('div');
+            tomorrowCardsContainer.className = 'class-cards-container';
+            info.tomorrow.forEach(group => {
+                const card = createClassCard(group, false);
+                tomorrowCardsContainer.appendChild(card);
+            });
+            futureContentContainer.appendChild(tomorrowCardsContainer);
+        } else if (info.nextAvailable) {
+            const nextDate = new Date(info.nextAvailable.date);
+            const formattedDate = nextDate.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            futureContentContainer.innerHTML = `<p class="rest-day-message">Disfruta tu descanso. Tienes clase hasta el <strong>${formattedDate}</strong>.</p>`;
+
+            const nextCardsContainer = document.createElement('div');
+            nextCardsContainer.className = 'class-cards-container';
+            info.nextAvailable.classes.forEach(group => {
+                const card = createClassCard(group, false);
+                nextCardsContainer.appendChild(card);
+            });
+            futureContentContainer.appendChild(nextCardsContainer);
+        } else {
+            futureContentContainer.innerHTML = '<p>No hay más clases programadas en el cuatrimestre.</p>';
         }
     }
+
+    document.getElementById('today-classes-cards').addEventListener('click', (e) => {
+        const card = e.target.closest('.class-card.interactive');
+        if (card) {
+            const groupId = card.dataset.groupId;
+
+            navigateTo('asistencia');
+
+            setTimeout(() => {
+                attendanceGroupSelect.value = groupId;
+                attendanceGroupSelect.dispatchEvent(new Event('change'));
+            }, 100);
+        }
+    });
 
     // --- INICIALIZACIÓN Y HELPERS ---
     function showNotification(message, type = 'success') {

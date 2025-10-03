@@ -39,11 +39,20 @@
             <div id="notification-container"></div>
             <!-- Sección de Inicio -->
             <section id="inicio" class="content-section active">
-                <h2 class="section-title">Bienvenido, Docente</h2>
-                <div id="dashboard-alerts"></div>
-                <div id="today-classes-container">
+                <h2 class="section-title">Dashboard</h2>
+
+                <div id="today-classes-section">
                     <h3>Clases de Hoy</h3>
-                    <div id="today-classes-list"></div>
+                    <div id="today-classes-cards" class="class-cards-container">
+                        <!-- Las tarjetas de clase para hoy se generarán aquí -->
+                    </div>
+                </div>
+
+                <div id="future-classes-section" style="margin-top: 2rem;">
+                    <h3>Próximas Clases</h3>
+                    <div id="future-classes-content">
+                        <!-- Las tarjetas o mensajes de futuras clases se generarán aquí -->
+                    </div>
                 </div>
             </section>
 

@@ -312,75 +312,57 @@ ipcMain.handle('export-pdf', async (event, data) => {
 });
 
 // --- LÓGICA DEL DASHBOARD ---
-ipcMain.handle('get-today-classes', async () => {
+ipcMain.handle('getDashboardInfo', async () => {
     const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key IN ("globalStartDate", "globalEndDate")');
     const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
     const globalEndDate = settingsRows.find(s => s.key === 'globalEndDate')?.value;
 
     if (!globalStartDate || !globalEndDate) {
-        return [];
+        return { today: [], tomorrow: [], nextAvailable: null };
     }
 
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    const dayOfWeek = today.getDay();
+    const allGroups = await dbAll('SELECT * FROM Groups');
 
-    const sql = `
-        SELECT group_name, subject_name
-        FROM Groups
-        WHERE ? >= ? AND ? <= ?
-          AND class_days LIKE ?
-    `;
+    const getClassesForDate = (date) => {
+        const dateString = date.toISOString().split('T')[0];
+        if (dateString < globalStartDate || dateString > globalEndDate) {
+            return [];
+        }
+        const dayOfWeek = date.getDay();
+        return allGroups.filter(g => g.class_days && g.class_days.split(',').map(Number).includes(dayOfWeek));
+    };
 
-    return await dbAll(sql, [todayString, globalStartDate, todayString, globalEndDate, `%${dayOfWeek}%`]);
-});
-
-ipcMain.handle('check-pending-attendance', async () => {
-    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key IN ("globalStartDate", "globalEndDate")');
-    const globalStartDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
-    const globalEndDate = settingsRows.find(s => s.key === 'globalEndDate')?.value;
-
-
-    if (!globalStartDate || !globalEndDate) {
-        return [];
-    }
-
-    const groups = await dbAll('SELECT * FROM Groups');
-    const pendingGroups = new Set();
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (const group of groups) {
-        if (!group.class_days) continue;
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
 
-        const startDate = new Date(globalStartDate);
-        const endDate = new Date(globalEndDate);
-        const classDays = group.class_days.split(',').map(Number);
+    const todayClasses = getClassesForDate(today);
+    const tomorrowClasses = getClassesForDate(tomorrow);
 
-        for (let d = new Date(startDate); d < today && d <= endDate; d.setDate(d.getDate() + 1)) {
-            const dayOfWeek = d.getDay();
-
-            if (classDays.includes(dayOfWeek)) {
-                const dateString = d.toISOString().split('T')[0];
-                const sql = `
-                    SELECT COUNT(*) as count
-                    FROM Attendance a
-                    JOIN Students s ON s.id = a.student_id
-                    WHERE s.group_id = ? AND a.attendance_date = ?`;
-
-                const result = await new Promise((resolve, reject) => {
-                    db.get(sql, [group.id, dateString], (err, row) => {
-                        if (err) reject(err);
-                        else resolve(row);
-                    });
-                });
-
-                if (result.count === 0) {
-                    pendingGroups.add(`${group.group_name} - ${group.subject_name}`);
-                    break;
-                }
+    let nextAvailable = null;
+    if (tomorrowClasses.length === 0) {
+        let nextDate = new Date(tomorrow);
+        for (let i = 0; i < 365; i++) { // Search up to a year ahead
+            nextDate.setDate(nextDate.getDate() + 1);
+            const nextClasses = getClassesForDate(nextDate);
+            if (nextClasses.length > 0) {
+                nextAvailable = {
+                    date: nextDate.toISOString(),
+                    classes: nextClasses
+                };
+                break;
             }
         }
     }
-    return Array.from(pendingGroups);
+
+    return {
+        today: todayClasses,
+        tomorrow: tomorrowClasses,
+        nextAvailable: nextAvailable
+    };
 });
+
+// El handler 'check-pending-attendance' ya no es necesario, el nuevo dashboard lo reemplaza.
+ipcMain.handle('check-pending-attendance', async () => []);
