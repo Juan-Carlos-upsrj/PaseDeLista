@@ -7,8 +7,8 @@ const sqlite3 = require('sqlite3').verbose();
 
 // --- CONFIGURACIÓN DE LA BASE DE DATOS Y MIGRACIÓN ÚNICA ---
 
-// 1. Definir la ruta de datos permanente y neutral.
-const permanentDataPath = path.join(app.getPath('appData'), 'AsistenciaApp-Data');
+// 1. Definir la ruta de datos permanente y neutral en la carpeta de Documentos.
+const permanentDataPath = path.join(app.getPath('documents'), 'AsistenciaApp-Data');
 const dbPath = path.join(permanentDataPath, 'asistencia.db');
 const migrationLockFile = path.join(permanentDataPath, '.migrated');
 
@@ -25,9 +25,16 @@ function runDataLocationMigration() {
     }
 
     const appData = app.getPath('appData');
+    // This path is an educated guess based on user feedback for where the app might be installed.
+    const localProgramsPath = path.join(path.dirname(app.getPath('cache')), 'Programs');
+
     const oldDbPaths = [
+        // Standard AppData/Roaming paths
         path.join(appData, 'Asistencia Pro', 'asistencia_pro.db'),
-        path.join(appData, 'Asistencias IAEV', 'asistencia_pro.db')
+        path.join(appData, 'Asistencias IAEV', 'asistencia_pro.db'),
+        // Paths from user feedback (installation directories)
+        path.join(localProgramsPath, 'asistencia-pro', 'asistencia_pro.db'),
+        path.join(localProgramsPath, 'asistencia-iaev', 'asistencia_pro.db')
     ];
 
     let sourceDbPath = null;
