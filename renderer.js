@@ -9,15 +9,6 @@ document.addEventListener('DOMContentLoaded', () => {
         groups: [],
         settings: {}, // Will hold showMatricula, globalStartDate, globalPartial1EndDate, globalEndDate
         reportData: null,
-        virtualGrid: { // State for the virtualized attendance grid
-            data: [],
-            students: [],
-            classDates: [],
-            rowHeight: 40,
-            colWidth: 80,
-            scrollTop: 0,
-            scrollLeft: 0,
-        }
     };
 
     // --- SELECTORES DE ELEMENTOS DEL DOM ---
@@ -187,34 +178,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- LÓGICA DE ASISTENCIA (VIRTUALIZADA) ---
-    const statusIconMap = {
-        'Presente': 'P',
-        'Ausente': 'A',
-        'Retardo': 'R',
-        'Pendiente': '—'
-    };
+    // --- LÓGICA DE ASISTENCIA (TABLA ESTÁNDAR) ---
+    const statusIconMap = { 'Presente': 'P', 'Ausente': 'A', 'Retardo': 'R', 'Pendiente': '—' };
 
     attendanceGroupSelect.addEventListener('change', () => {
         const groupId = parseInt(attendanceGroupSelect.value);
         if (groupId) {
-            setupAttendanceGrid(groupId);
+            renderAttendanceGrid(groupId);
         } else {
             attendanceGridContainer.innerHTML = '';
         }
     });
 
-    let lastScrollListener = null;
-    attendanceGridContainer.removeEventListener('scroll', lastScrollListener);
-    lastScrollListener = () => renderVisibleGrid();
-    attendanceGridContainer.addEventListener('scroll', lastScrollListener);
+    async function renderAttendanceGrid(groupId) {
+        attendanceGridContainer.innerHTML = '<p class="p-4">Cargando...</p>';
 
-    async function setupAttendanceGrid(groupId) {
-        attendanceGridContainer.innerHTML = '<p class="p-4">Cargando datos de asistencia...</p>';
-
-        const { globalStartDate, globalEndDate } = state.settings;
+        const { globalStartDate, globalEndDate, globalPartial1EndDate } = state.settings;
         if (!globalStartDate || !globalEndDate) {
-            attendanceGridContainer.innerHTML = '<p class="p-4">Por favor, establece las fechas de "Inicio y Fin de Cuatrimestre" en la Configuración Global para continuar.</p>';
+            attendanceGridContainer.innerHTML = '<p class="p-4">Por favor, establece las fechas de inicio y fin en la Configuración Global.</p>';
             return;
         }
 
@@ -225,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ]);
 
         if (!group.class_days) {
-            attendanceGridContainer.innerHTML = '<p class="p-4">Este grupo no tiene configurados los días de clase.</p>';
+            attendanceGridContainer.innerHTML = '<p class="p-4">Este grupo no tiene días de clase configurados.</p>';
             return;
         }
 
@@ -240,105 +221,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const attendanceMap = new Map();
         attendanceData.forEach(att => attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status));
 
-        state.virtualGrid.data = students.map(student => {
-            return classDates.map(date => {
-                const dateString = date.toISOString().split('T')[0];
-                return attendanceMap.get(`${student.id}-${dateString}`) || 'Pendiente';
-            });
+        let tableHTML = `<table id="attendance-table">`;
+
+        // Render Header
+        tableHTML += '<thead><tr>';
+        tableHTML += `<th class="student-name-header">Alumno</th>`;
+        const partial1End = globalPartial1EndDate ? new Date(globalPartial1EndDate + 'T00:00:00') : null;
+        classDates.forEach(date => {
+            const isPartial1 = partial1End && date <= partial1End;
+            tableHTML += `<th class="date-header ${isPartial1 ? 'partial-header' : ''}">${date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</th>`;
         });
-        state.virtualGrid.students = students;
-        state.virtualGrid.classDates = classDates;
-        state.virtualGrid.colWidth = 60;
-        state.virtualGrid.rowHeight = 35;
+        tableHTML += '</tr></thead>';
 
-        attendanceGridContainer.innerHTML = '';
-        const content = document.createElement('div');
-        content.className = 'attendance-grid-content';
-        content.style.width = `${classDates.length * state.virtualGrid.colWidth + 200}px`;
-        content.style.height = `${students.length * state.virtualGrid.rowHeight}px`;
-        attendanceGridContainer.appendChild(content);
+        // Render Body
+        tableHTML += '<tbody>';
+        students.forEach(student => {
+            tableHTML += `<tr>`;
+            tableHTML += `<td class="student-name-cell">${student.student_name}</td>`;
+            classDates.forEach(date => {
+                const dateString = date.toISOString().split('T')[0];
+                const status = attendanceMap.get(`${student.id}-${dateString}`) || 'Pendiente';
+                tableHTML += `<td class="status-cell status-${status.toLowerCase()}" data-student-id="${student.id}" data-date="${dateString}" data-status="${status}">${statusIconMap[status]}</td>`;
+            });
+            tableHTML += `</tr>`;
+        });
+        tableHTML += '</tbody></table>';
 
-        renderVisibleGrid();
-    }
-
-    function renderVisibleGrid() {
-        const { data, students, classDates, rowHeight, colWidth } = state.virtualGrid;
-        const content = attendanceGridContainer.querySelector('.attendance-grid-content');
-        if (!content) return;
-
-        const scrollTop = attendanceGridContainer.scrollTop;
-        const scrollLeft = attendanceGridContainer.scrollLeft;
-        const viewportHeight = attendanceGridContainer.clientHeight;
-        const viewportWidth = attendanceGridContainer.clientWidth;
-
-        const firstRow = Math.max(0, Math.floor(scrollTop / rowHeight));
-        const lastRow = Math.min(data.length, Math.ceil((scrollTop + viewportHeight) / rowHeight));
-
-        const firstCol = Math.max(0, Math.floor(scrollLeft / colWidth));
-        const lastCol = Math.min(classDates.length, Math.ceil((scrollLeft + viewportWidth) / colWidth) + 1);
-
-        const fragment = document.createDocumentFragment();
-
-        const header = document.createElement('div');
-        header.className = 'attendance-grid-header';
-        header.style.width = `${200 + classDates.length * colWidth}px`;
-
-        const studentHeaderCell = document.createElement('div');
-        studentHeaderCell.className = 'attendance-grid-cell student-name-cell';
-        studentHeaderCell.textContent = 'Alumno';
-        studentHeaderCell.style.width = '200px';
-        studentHeaderCell.style.position = 'sticky';
-        studentHeaderCell.style.left = '0';
-        header.appendChild(studentHeaderCell);
-
-        for (let j = 0; j < classDates.length; j++) {
-            const date = classDates[j];
-            const dateCell = document.createElement('div');
-            dateCell.className = 'attendance-grid-cell date-header-cell';
-            dateCell.textContent = date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
-            dateCell.style.width = `${colWidth}px`;
-            dateCell.style.flexShrink = '0';
-            header.appendChild(dateCell);
-        }
-        fragment.appendChild(header);
-
-        for (let i = firstRow; i < lastRow; i++) {
-            const student = students[i];
-            const top = i * rowHeight;
-
-            const nameCell = document.createElement('div');
-            nameCell.className = 'attendance-grid-cell student-name-cell';
-            nameCell.textContent = student.student_name;
-            nameCell.style.width = '200px';
-            nameCell.style.height = `${rowHeight}px`;
-            nameCell.style.top = `${top}px`;
-            nameCell.style.left = `${scrollLeft}px`;
-            fragment.appendChild(nameCell);
-
-            for (let j = firstCol; j < lastCol; j++) {
-                const status = data[i][j];
-                const cell = document.createElement('div');
-                cell.className = `attendance-grid-cell status-cell status-${status.toLowerCase()}`;
-                cell.textContent = statusIconMap[status];
-                cell.dataset.studentId = student.id;
-                cell.dataset.date = classDates[j].toISOString().split('T')[0];
-                cell.dataset.status = status;
-                cell.dataset.row = i;
-                cell.dataset.col = j;
-                cell.style.width = `${colWidth}px`;
-                cell.style.height = `${rowHeight}px`;
-                cell.style.top = `${top}px`;
-                cell.style.left = `${200 + j * colWidth}px`;
-                fragment.appendChild(cell);
-            }
-        }
-
-        content.innerHTML = '';
-        content.appendChild(fragment);
+        attendanceGridContainer.innerHTML = tableHTML;
     }
 
     attendanceGridContainer.addEventListener('click', (e) => {
-        if(e.target.classList.contains('status-cell')) {
+        if (e.target.classList.contains('status-cell')) {
             const cell = e.target;
             const currentStatus = cell.dataset.status;
             let newStatus;
@@ -346,57 +259,41 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentStatus === 'Pendiente') newStatus = 'Presente';
             else if (currentStatus === 'Presente') newStatus = 'Retardo';
             else if (currentStatus === 'Retardo') newStatus = 'Ausente';
-            else newStatus = 'Presente';
+            else newStatus = 'Pendiente';
 
-            const attendance = {
+            cell.dataset.status = newStatus;
+            cell.className = `status-cell status-${newStatus.toLowerCase()}`;
+            cell.textContent = statusIconMap[newStatus];
+
+            window.api.setAttendance({
                 studentId: cell.dataset.studentId,
                 date: cell.dataset.date,
                 status: newStatus
-            };
-
-            window.api.setAttendance(attendance);
-
-            cell.textContent = statusIconMap[newStatus];
-            cell.className = `status-cell status-${newStatus.toLowerCase()}`;
-            cell.dataset.status = newStatus;
-
-            state.virtualGrid.data[cell.dataset.row][cell.dataset.col] = newStatus;
+            });
         }
     });
 
     document.getElementById('quick-pass-btn').addEventListener('click', async () => {
-        const { data, students, classDates } = state.virtualGrid;
+        const groupId = parseInt(attendanceGroupSelect.value);
+        if (!groupId) return;
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = new Date().toISOString().split('T')[0];
+        const cellsToUpdate = document.querySelectorAll(`#attendance-table td.status-cell[data-date="${today}"][data-status="Pendiente"]`);
 
-        const todayIndex = classDates.findIndex(d => d.getTime() === today.getTime());
-
-        if (todayIndex === -1) {
-            showNotification('No hay clase programada para hoy.', 'error');
+        if (cellsToUpdate.length === 0) {
+            showNotification('No hay alumnos pendientes para marcar hoy.', 'error');
             return;
         }
 
-        const todayDateString = classDates[todayIndex].toISOString().split('T')[0];
-        let updates = 0;
         const promises = [];
+        cellsToUpdate.forEach(cell => {
+            const studentId = cell.dataset.studentId;
+            promises.push(window.api.setAttendance({ studentId, date: today, status: 'Presente' }));
+        });
 
-        for (let i = 0; i < data.length; i++) {
-            if (data[i][todayIndex] === 'Pendiente') {
-                const studentId = students[i].id;
-                promises.push(window.api.setAttendance({ studentId, date: todayDateString, status: 'Presente' }));
-                data[i][todayIndex] = 'Presente';
-                updates++;
-            }
-        }
-
-        if (updates > 0) {
-            await Promise.all(promises);
-            renderVisibleGrid();
-            showNotification(`${updates} alumnos marcados como "Presente" para hoy.`);
-        } else {
-            showNotification('No hay alumnos pendientes para marcar en la fecha de hoy.', 'error');
-        }
+        await Promise.all(promises);
+        showNotification(`${cellsToUpdate.length} alumnos marcados como "Presente".`);
+        renderAttendanceGrid(groupId);
     });
 
     // --- LÓGICA DE REPORTES ---

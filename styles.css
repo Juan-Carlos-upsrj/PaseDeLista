@@ -321,42 +321,74 @@ body {
 }
 
 
-/* Tabla de Asistencia */
-.table-container { overflow: auto; max-height: calc(100vh - 12rem); background: var(--card-bg); border-radius: 8px; }
-#attendance-table { width: 100%; border-collapse: collapse; }
-#attendance-table th, #attendance-table td {
-    padding: 0.5rem;
+/* --- ATTENDANCE TABLE (STICKY & RELIABLE) --- */
+.table-container {
+    overflow: auto;
+    max-height: calc(100vh - 15rem);
+    background: var(--card-bg);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+#attendance-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+#attendance-table th,
+#attendance-table td {
+    padding: 0.6rem;
     text-align: center;
     border: 1px solid var(--border-color);
-    white-space: normal; /* Allow wrapping in attendance cells */
+    white-space: nowrap;
 }
-#attendance-table .student-name-header,
+
+/* Sticky Header Row */
+#attendance-table thead th {
+    position: sticky;
+    top: 0;
+    background-color: #f8fafc;
+    z-index: 2;
+}
+
+/* Sticky First Column (Student Names) */
 #attendance-table .student-name-cell {
     position: sticky;
     left: 0;
     background-color: #f8fafc;
-    z-index: 2;
-    width: 200px;
-    min-width: 200px;
     text-align: left;
-    white-space: nowrap;
+    z-index: 1;
+    width: 250px;
+    min-width: 250px;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-#attendance-table thead { position: sticky; top: 0; z-index: 3; }
-#attendance-table .partial-header { background-color: #dbeafe; }
+
+/* Top-Left Corner Cell (Student Header) - Must be on top of all */
+#attendance-table .student-name-header {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 3;
+}
+
+/* Date Header specific styles */
 #attendance-table .date-header {
-    background-color: #f1f5f9;
-    min-width: 60px; /* More compact date headers */
+    min-width: 70px;
     font-size: 0.8rem;
     padding: 0.4rem 0.2rem;
 }
 
+#attendance-table .partial-header {
+    background-color: #e0e7ff; /* Lighter blue for partial */
+}
+
 .status-cell {
-    font-size: 1.1rem; /* More compact status icons */
+    font-size: 1.2rem;
     font-weight: bold;
     cursor: pointer;
     user-select: none;
+    min-width: 70px;
 }
 .status-presente { color: #22c55e; }
 .status-ausente { color: #ef4444; }
@@ -465,63 +497,4 @@ body {
         opacity: 0;
         transform: translateX(100%);
     }
-}
-
-/* --- VIRTUALIZED ATTENDANCE GRID --- */
-.attendance-grid-container {
-    position: relative;
-    overflow: auto;
-    height: calc(100vh - 20rem); /* Adjust height as needed */
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-}
-
-.attendance-grid-content {
-    position: relative;
-    overflow: hidden;
-}
-
-.attendance-grid-header {
-    display: flex;
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    background-color: #f8fafc;
-    font-weight: 600;
-    /* width is implicitly determined by content */
-}
-
-.attendance-grid-cell {
-    position: absolute; /* All cells are positioned by JS now */
-    padding: 0.5rem;
-    text-align: center;
-    border-right: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.attendance-grid-header .attendance-grid-cell {
-    position: relative; /* Header cells are laid out by flex, not absolutely */
-    border-bottom-width: 2px;
-    cursor: default;
-}
-
-.student-name-cell {
-    /* `position: sticky` is removed; JS calculates `left` on scroll */
-    z-index: 2;
-    background-color: #f8fafc;
-    text-align: left;
-    justify-content: flex-start;
-}
-
-.date-header-cell {
-    font-size: 0.8rem;
-    padding: 0.4rem 0.2rem;
-    background-color: #f1f5f9;
 }
