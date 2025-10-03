@@ -5,88 +5,34 @@ const path = require('path');
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
-// --- CONFIGURACIÓN DE LA BASE DE DATOS Y MIGRACIÓN ÚNICA ---
+// --- CONFIGURACIÓN DE LA BASE DE DATOS ---
+// Apuntando directamente a la ubicación de la base de datos confirmada por el usuario para recuperar los datos.
+// Esta es una solución específica para el usuario.
+const dbPath = path.join(path.dirname(app.getPath('cache')), 'Programs', 'asistencia-iaev', 'asistencia_pro.db');
 
-// 1. Definir la ruta de datos permanente y neutral en la carpeta de Documentos.
-const permanentDataPath = path.join(app.getPath('documents'), 'AsistenciaApp-Data');
-const dbPath = path.join(permanentDataPath, 'asistencia.db');
-const migrationLockFile = path.join(permanentDataPath, '.migrated');
-
-// 2. Realizar la migración de la ubicación de la base de datos si es necesario.
-// Esta función se ejecuta de forma síncrona al inicio para garantizar que la BD esté en su sitio antes de conectarse.
-function runDataLocationMigration() {
-    if (fs.existsSync(migrationLockFile)) {
-        console.log('La migración de la ubicación de datos ya se realizó. Omitiendo.');
-        return;
-    }
-
-    if (!fs.existsSync(permanentDataPath)) {
-        fs.mkdirSync(permanentDataPath, { recursive: true });
-    }
-
-    const appData = app.getPath('appData');
-    // This path is an educated guess based on user feedback for where the app might be installed.
-    const localProgramsPath = path.join(path.dirname(app.getPath('cache')), 'Programs');
-
-    const oldDbPaths = [
-        // Standard AppData/Roaming paths
-        path.join(appData, 'Asistencia Pro', 'asistencia_pro.db'),
-        path.join(appData, 'Asistencias IAEV', 'asistencia_pro.db'),
-        // Paths from user feedback (installation directories)
-        path.join(localProgramsPath, 'asistencia-pro', 'asistencia_pro.db'),
-        path.join(localProgramsPath, 'asistencia-iaev', 'asistencia_pro.db')
-    ];
-
-    let sourceDbPath = null;
-    let mostRecentTime = 0;
-
-    oldDbPaths.forEach(p => {
-        if (fs.existsSync(p)) {
-            try {
-                const stats = fs.statSync(p);
-                if (stats.mtimeMs > mostRecentTime) {
-                    mostRecentTime = stats.mtimeMs;
-                    sourceDbPath = p;
-                }
-            } catch (err) {
-                console.error(`Error al acceder a la base de datos antigua en ${p}:`, err);
-            }
-        }
-    });
-
-    if (sourceDbPath) {
-        console.log(`Migrando la base de datos más reciente desde: ${sourceDbPath}`);
-        try {
-            fs.copyFileSync(sourceDbPath, dbPath);
-            console.log('Base de datos migrada a la nueva ubicación permanente con éxito.');
-        } catch (err) {
-            console.error('Error al migrar el archivo de la base de datos:', err);
-            return;
-        }
-    } else {
-        console.log('No se encontraron bases de datos antiguas. Se creará una nueva si es necesario.');
-    }
-
-    try {
-        fs.writeFileSync(migrationLockFile, new Date().toISOString());
-    } catch (err) {
-        console.error('Error al crear el archivo de bloqueo de migración:', err);
-    }
+// Verificar si el archivo de la base de datos existe antes de intentar conectarse.
+if (!fs.existsSync(dbPath)) {
+    const errorMsg = `La base de datos no se encontró en la ruta esperada: ${dbPath}\n\nAsegúrese de que el archivo 'asistencia_pro.db' exista en esa ubicación. La aplicación se cerrará.`;
+    console.error(errorMsg);
+    // Es posible que el diálogo no se muestre si la aplicación se cierra demasiado rápido,
+    // pero el log de la consola será útil.
+    dialog.showErrorBox('Error Crítico de Base de Datos', errorMsg);
+    app.quit();
+    // Salir del proceso para evitar más errores.
+    process.exit(1);
 }
 
-// Ejecutar la migración de ubicación ANTES de cualquier otra cosa.
-runDataLocationMigration();
-
-// 3. Conectar a la base de datos en la ubicación permanente.
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error abriendo la base de datos", err.message);
+        dialog.showErrorBox('Error de Base de Datos', `No se pudo abrir la base de datos en ${dbPath}.\n\nError: ${err.message}`);
+        app.quit();
     } else {
-        console.log("Conectado a la base de datos SQLite en la ubicación permanente.");
+        console.log(`Conectado exitosamente a la base de datos en: ${dbPath}`);
         db.run("PRAGMA foreign_keys = ON;", (pragmaErr) => {
             if (pragmaErr) console.error("Error habilitando PRAGMA foreign_keys", pragmaErr.message);
         });
-        // Solo crear tablas si no existen. No se hacen más migraciones de esquema.
+        // Solo crear tablas si no existen.
         createTables();
     }
 });
