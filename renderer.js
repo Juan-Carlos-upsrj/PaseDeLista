@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- LÓGICA DE ASISTENCIA (TABLA ESTÁNDAR) ---
-    const statusIconMap = { 'Presente': 'P', 'Ausente': 'A', 'Retardo': 'R', 'Intercambio': 'I', 'Pendiente': '—' };
+    const statusIconMap = { 'Presente': 'P', 'Ausente': 'A', 'Retardo': 'R', 'Intercambio': 'I', 'Justificada': 'J', 'Pendiente': '—' };
 
     attendanceGroupSelect.addEventListener('change', () => {
         const groupId = parseInt(attendanceGroupSelect.value);
@@ -313,24 +313,26 @@ async function renderAttendanceGrid(groupId) {
     attendanceGridContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('status-cell')) {
             const cell = e.target;
+            const studentId = cell.dataset.studentId;
+            const date = cell.dataset.date;
             const currentStatus = cell.dataset.status;
             let newStatus;
 
-            if (currentStatus === 'Pendiente') newStatus = 'Presente';
-            else if (currentStatus === 'Presente') newStatus = 'Retardo';
-            else if (currentStatus === 'Retardo') newStatus = 'Ausente';
-            else if (currentStatus === 'Ausente') newStatus = 'Intercambio';
-            else newStatus = 'Pendiente';
+            // Define el ciclo de estados de asistencia.
+            const statusRotation = ['Pendiente', 'Presente', 'Retardo', 'Ausente', 'Justificada', 'Intercambio'];
+            const currentIndex = statusRotation.indexOf(currentStatus);
+            newStatus = statusRotation[(currentIndex + 1) % statusRotation.length];
 
             cell.dataset.status = newStatus;
-            cell.className = `status-cell status-${newStatus.toLowerCase()}`;
+            cell.className = `status-cell status-${newStatus.toLowerCase()}`; // Asegúrate que el CSS maneje 'justificada'
             cell.textContent = statusIconMap[newStatus];
 
-            window.api.setAttendance({
-                studentId: cell.dataset.studentId,
-                date: cell.dataset.date,
-                status: newStatus
-            });
+            // Si el nuevo estado es 'Pendiente', elimina el registro.
+            if (newStatus === 'Pendiente') {
+                window.api.deleteAttendance({ studentId, date });
+            } else {
+                window.api.setAttendance({ studentId, date, status: newStatus });
+            }
         }
     });
 

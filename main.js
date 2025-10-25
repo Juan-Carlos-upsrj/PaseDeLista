@@ -70,7 +70,7 @@ function createTables() {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             student_id INTEGER NOT NULL,
             attendance_date TEXT NOT NULL,
-            status TEXT NOT NULL CHECK(status IN ('Presente', 'Ausente', 'Retardo', 'Intercambio')),
+            status TEXT NOT NULL CHECK(status IN ('Presente', 'Ausente', 'Retardo', 'Intercambio', 'Justificada')),
             FOREIGN KEY (student_id) REFERENCES Students (id) ON DELETE CASCADE,
             UNIQUE(student_id, attendance_date)
         );
@@ -211,6 +211,11 @@ ipcMain.handle('get-attendance', async (event, groupId) => {
 ipcMain.handle('set-attendance', async (event, { studentId, date, status }) => {
     const sql = 'INSERT OR REPLACE INTO Attendance (student_id, attendance_date, status) VALUES (?, ?, ?)';
     return await dbRun(sql, [studentId, date, status]);
+});
+
+ipcMain.handle('delete-attendance', async (event, { studentId, date }) => {
+    const sql = 'DELETE FROM Attendance WHERE student_id = ? AND attendance_date = ?';
+    return await dbRun(sql, [studentId, date]);
 });
 
 ipcMain.handle('setBulkAttendance', async (event, attendances) => {

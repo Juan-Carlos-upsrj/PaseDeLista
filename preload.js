@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('api', {
     // Funciones para Asistencia
     getAttendance: (groupId) => ipcRenderer.invoke('get-attendance', groupId),
     setAttendance: (attendance) => ipcRenderer.invoke('set-attendance', attendance),
+    deleteAttendance: (data) => ipcRenderer.invoke('delete-attendance', data),
     setBulkAttendance: (attendances) => ipcRenderer.invoke('setBulkAttendance', attendances),
     
     // Funciones para Configuración
