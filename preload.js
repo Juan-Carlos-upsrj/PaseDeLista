@@ -10,23 +10,25 @@ contextBridge.exposeInMainWorld('api', {
     updateGroup: (group) => ipcRenderer.invoke('update-group', group),
     deleteGroup: (id) => ipcRenderer.invoke('delete-group', id),
     getGroupById: (id) => ipcRenderer.invoke('get-group-by-id', id),
-    
+
     // Funciones para Alumnos
     getStudents: (groupId) => ipcRenderer.invoke('get-students', groupId),
     addStudent: (student) => ipcRenderer.invoke('add-student', student),
     addMultipleStudents: (data) => ipcRenderer.invoke('add-multiple-students', data),
     deleteStudent: (id) => ipcRenderer.invoke('delete-student', id),
+    getStudentById: (id) => ipcRenderer.invoke('get-student-by-id', id),
+    updateStudent: (student) => ipcRenderer.invoke('update-student', student),
 
     // Funciones para Asistencia
     getAttendance: (groupId) => ipcRenderer.invoke('get-attendance', groupId),
     setAttendance: (attendance) => ipcRenderer.invoke('set-attendance', attendance),
     deleteAttendance: (data) => ipcRenderer.invoke('delete-attendance', data),
     saveRollCall: (data) => ipcRenderer.invoke('save-roll-call', data),
-    
+
     // Funciones para Configuración
     getSettings: () => ipcRenderer.invoke('get-settings'),
     saveSetting: (setting) => ipcRenderer.invoke('save-setting', setting),
-    
+
     // Funciones para el Dashboard
     getDashboardInfo: () => ipcRenderer.invoke('getDashboardInfo'),
 

@@ -157,25 +157,76 @@ document.addEventListener('DOMContentLoaded', () => {
             row.innerHTML = `
                 <td class="matricula-col">${student.student_id || ''}</td>
                 <td>${student.student_name}</td>
-                <td><a href="#" class="action-link" data-student-id="${student.id}">Eliminar</a></td>
+                <td><button class="btn btn-secondary btn-sm edit-student-btn" data-student-id="${student.id}">Editar</button></td>
             `;
         });
         applyMatriculaVisibility();
     }
 
     studentsTableBody.addEventListener('click', async (e) => {
-        if(e.target.classList.contains('action-link')) {
+        if (e.target.classList.contains('edit-student-btn')) {
             const studentId = e.target.dataset.studentId;
-            if (confirm('¿Seguro que quieres eliminar a este alumno?')) {
-                try {
-                    await window.api.deleteStudent(studentId);
-                    showNotification('Alumno eliminado correctamente.');
-                    loadStudents(state.selectedGroupId);
-                } catch (error) {
-                    showNotification(`Error al eliminar alumno: ${error.message}`, 'error');
-                }
+            openEditStudentModal(studentId);
+        }
+    });
+
+    // --- LÓGICA DEL MODAL DE EDICIÓN DE ALUMNOS ---
+    const editStudentModal = document.getElementById('edit-student-modal');
+    const editStudentForm = document.getElementById('edit-student-form');
+    const deleteStudentFromModalBtn = document.getElementById('delete-student-from-modal-btn');
+
+    async function openEditStudentModal(studentId) {
+        const student = await window.api.getStudentById(studentId);
+        if (!student) {
+            showNotification('No se pudo encontrar al alumno.', 'error');
+            return;
+        }
+
+        // Rellenar el formulario con los datos del alumno
+        document.getElementById('edit-student-id-input').value = student.id;
+        document.getElementById('edit-student-matricula-input').value = student.student_id || '';
+        document.getElementById('edit-student-name-input').value = student.student_name;
+
+        editStudentModal.classList.remove('hidden');
+    }
+
+    // Guardar cambios del alumno
+    editStudentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const studentData = {
+            id: document.getElementById('edit-student-id-input').value,
+            studentId: document.getElementById('edit-student-matricula-input').value,
+            name: document.getElementById('edit-student-name-input').value
+        };
+
+        try {
+            await window.api.updateStudent(studentData);
+            showNotification('Alumno actualizado con éxito.');
+            editStudentModal.classList.add('hidden');
+            loadStudents(state.selectedGroupId); // Recargar la lista de alumnos
+        } catch (error) {
+            showNotification(`Error al actualizar alumno: ${error.message}`, 'error');
+        }
+    });
+
+    // Eliminar alumno desde el modal
+    deleteStudentFromModalBtn.addEventListener('click', async () => {
+        const studentId = document.getElementById('edit-student-id-input').value;
+        if (confirm('¿Estás seguro de que quieres eliminar a este alumno? Esta acción no se puede deshacer.')) {
+            try {
+                await window.api.deleteStudent(studentId);
+                showNotification('Alumno eliminado correctamente.');
+                editStudentModal.classList.add('hidden');
+                loadStudents(state.selectedGroupId);
+            } catch (error) {
+                showNotification(`Error al eliminar alumno: ${error.message}`, 'error');
             }
         }
+    });
+
+    // Cancelar la edición
+    document.getElementById('cancel-edit-student-btn').addEventListener('click', () => {
+        editStudentModal.classList.add('hidden');
     });
 
     // --- LÓGICA DE ASISTENCIA (TABLA ESTÁNDAR) ---

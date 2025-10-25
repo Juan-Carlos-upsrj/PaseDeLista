@@ -294,6 +294,30 @@
         </div>
     </div>
 
+    <div id="edit-student-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Editar Alumno</h3>
+            <form id="edit-student-form">
+                <input type="hidden" id="edit-student-id-input">
+                <div class="form-group">
+                    <label for="edit-student-id">Matrícula (Opcional)</label>
+                    <input type="text" id="edit-student-matricula-input">
+                </div>
+                <div class="form-group">
+                    <label for="edit-student-name">Nombre Completo</label>
+                    <input type="text" id="edit-student-name-input" required>
+                </div>
+                <div class="modal-actions" style="justify-content: space-between;">
+                    <button type="button" id="delete-student-from-modal-btn" class="btn btn-danger">Eliminar Alumno</button>
+                    <div>
+                        <button type="button" id="cancel-edit-student-btn" class="btn btn-secondary">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="./renderer.js"></script>
 </body>
 </html>

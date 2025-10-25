@@ -197,6 +197,15 @@ ipcMain.handle('add-multiple-students', async (event, { students, groupId }) => 
     return { changes };
 });
 ipcMain.handle('delete-student', async (event, id) => await dbRun('DELETE FROM Students WHERE id = ?', [id]));
+ipcMain.handle('get-student-by-id', async (event, id) => {
+    return await dbAll('SELECT * FROM Students WHERE id = ?', [id]).then(rows => rows[0]);
+});
+ipcMain.handle('update-student', async (event, { id, name, studentId }) => {
+    return await dbRun(
+        'UPDATE Students SET student_name = ?, student_id = ? WHERE id = ?',
+        [name, studentId || null, id]
+    );
+});
 
 // --- ASISTENCIA ---
 ipcMain.handle('get-attendance', async (event, groupId) => {
