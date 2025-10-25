@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Política de Seguridad de Contenido -->
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <title>Asistencias IAEV</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Contenedor para la animación de cumpleaños -->
+    <div id="birthday-celebration"></div>
+    <!-- Contenedor para la animación de viernes -->
+    <div id="friday-celebration" class="hidden">
+        <div class="friday-message"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+        <div class="firework"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Barra Lateral -->
+        <nav class="sidebar">
+            <div>
+                <div class="sidebar-header">
+                    <svg class="sidebar-logo" xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    <h1>Asistencias IAEV</h1>
+                </div>
+                <ul class="sidebar-menu">
+                    <li><a href="#inicio" class="sidebar-link active" data-section="inicio"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Inicio</a></li>
+                    <li><a href="#grupos" class="sidebar-link" data-section="grupos"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> Grupos</a></li>
+                    <li><a href="#asistencia" class="sidebar-link" data-section="asistencia"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg> Asistencia</a></li>
+                    <li><a href="#reportes" class="sidebar-link" data-section="reportes"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M15.5 2H8.6c-.4 0-.8.2-1.1.5-.3.3-.5.7-.5 1.1V21c0 .8.7 1.5 1.5 1.5h11c.8 0 1.5-.7 1.5-1.5v-11L15.5 2z"/><path d="M15 2v5h5"/><path d="M10 16s-1.5-2-4-2"/><path d="M10 11s-1.5-2-4-2"/></svg> Reportes</a></li>
+                </ul>
+            </div>
+            <div class="sidebar-footer">
+                 <a href="#" id="settings-btn" class="sidebar-link"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="sidebar-icon"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 0 2l-.15.08a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1 0-2l.15-.08a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> Configuración</a>
+                <div class="theme-switch-wrapper">
+                    <label for="theme-toggle">Tema Oscuro</label>
+                    <label class="theme-switch">
+                        <input type="checkbox" id="theme-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="storage-indicator">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
+                    <span>Datos guardados localmente</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Contenido Principal -->
+        <main class="main-content">
+            <div id="notification-container"></div>
+            <!-- Sección de Inicio -->
+            <section id="inicio" class="content-section active">
+                <div class="dashboard-layout">
+                    <div class="dashboard-main">
+                        <h2 class="section-title">Dashboard</h2>
+
+                        <!-- Sección de Cumpleaños y Frases -->
+                        <section id="birthday-section" class="dashboard-section" style="display: none;">
+                            <h3>Próximos Cumpleaños</h3>
+                            <div id="birthday-container"></div>
+                        </section>
+
+                        <section id="motivational-quote-section" class="dashboard-section" style="display: none;">
+                            <h3>Palabra de Aliento</h3>
+                            <div id="quote-container"></div>
+                        </section>
+
+                        <!-- Sección de Recordatorio de Calificaciones -->
+                        <section id="deadline-reminder-section" class="dashboard-section" style="display: none;"></section>
+
+                        <div id="today-classes-section">
+                            <h3>Clases de Hoy</h3>
+                            <div id="today-classes-cards" class="class-cards-container">
+                                <!-- Las tarjetas de clase para hoy se generarán aquí -->
+                            </div>
+                        </div>
+
+                        <div id="future-classes-section" style="margin-top: 2rem;">
+                            <h3>Próximas Clases</h3>
+                            <div id="future-classes-content">
+                                <!-- Las tarjetas o mensajes de futuras clases se generarán aquí -->
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Barra lateral de estadísticas -->
+                    <aside class="dashboard-sidebar">
+                        <h3>Resumen de Asistencia</h3>
+                        <div id="attendance-summary-container">
+                            <!-- Las barras de progreso se generarán aquí -->
+                        </div>
+                    </aside>
+                </div>
+            </section>
+
+            <!-- Sección de Grupos -->
+            <section id="grupos" class="content-section">
+                 <h2 class="section-title">Gestión de Grupos y Alumnos</h2>
+                 <div class="split-view">
+                    <div class="split-view-left">
+                        <h3>Mis Grupos</h3>
+                        <button id="add-group-btn" class="btn btn-primary full-width">Crear Nuevo Grupo</button>
+                        <ul id="groups-list" class="item-list"></ul>
+                    </div>
+                    <div class="split-view-right">
+                        <div id="group-details-view" class="hidden">
+                            <!-- Tabs -->
+                            <div class="tabs">
+                                <button class="tab-link active" data-tab="configuracion">Configuración</button>
+                                <button class="tab-link" data-tab="alumnos">Alumnos</button>
+                            </div>
+
+                            <!-- Contenido Tab Configuración -->
+                            <div id="configuracion" class="tab-content active">
+                                <form id="group-form">
+                                    <input type="hidden" id="group-id">
+                                    <div class="form-grid">
+                                        <div class="form-group">
+                                            <label for="group-name">Nombre del grupo</label>
+                                            <input type="text" id="group-name" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="subject-name">Materia</label>
+                                            <input type="text" id="subject-name" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Días de Clase</label>
+                                        <div id="class-days-checkboxes" class="checkbox-group">
+                                            <!-- Checkboxes se generan dinámicamente -->
+                                        </div>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="button" id="delete-group-btn" class="btn btn-danger">Eliminar</button>
+                                        <button type="submit" class="btn btn-primary">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Contenido Tab Alumnos -->
+                            <div id="alumnos" class="tab-content">
+                                <div class="toolbar">
+                                    <h4 id="students-list-header">Alumnos</h4>
+                                    <div>
+                                        <button id="add-multiple-students-btn" class="btn btn-secondary">Añadir Varios</button>
+                                        <button id="add-student-btn" class="btn btn-primary">+ Añadir Alumno</button>
+                                    </div>
+                                </div>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="matricula-col">Matrícula</th>
+                                            <th>Nombre Completo</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="students-table-body"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div id="no-group-selected-view">
+                            <p>Selecciona un grupo para ver sus detalles o crea uno nuevo.</p>
+                        </div>
+                    </div>
+                 </div>
+            </section>
+
+            <!-- Sección de Asistencia -->
+            <section id="asistencia" class="content-section">
+                <div class="toolbar">
+                    <h2 class="section-title">Pase de Lista</h2>
+                    <div class="form-group">
+                        <label for="attendance-group-select">Seleccionar Grupo</label>
+                        <select id="attendance-group-select"></select>
+                    </div>
+                    <button id="quick-pass-btn" class="btn btn-secondary" style="margin-left: auto;">Marcar Todos Presentes</button>
+                </div>
+                <div id="attendance-grid-container" class="table-container"></div>
+            </section>
+
+            <!-- Sección de Reportes -->
+            <section id="reportes" class="content-section">
+                <h2 class="section-title">Generador de Reportes</h2>
+                <div class="toolbar">
+                    <div class="form-group">
+                        <label for="report-group-select">Seleccionar Grupo</label>
+                        <select id="report-group-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-period-select">Seleccionar Periodo</label>
+                        <select id="report-period-select">
+                            <option value="p1">Primer Parcial</option>
+                            <option value="p2">Segundo Parcial</option>
+                            <option value="all">Cuatrimestre Completo</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="report-search-input">Buscar Alumno</label>
+                        <input type="search" id="report-search-input" placeholder="Nombre del alumno...">
+                    </div>
+                    <button id="generate-report-btn" class="btn btn-primary">Generar Reporte</button>
+                    <div class="form-actions" style="margin-top: 0; padding-top: 0;">
+                         <button id="export-csv-btn" class="btn btn-secondary" disabled>Exportar a CSV</button>
+                         <button id="export-pdf-btn" class="btn btn-secondary" disabled>Exportar a PDF</button>
+                    </div>
+                </div>
+                <div id="report-results-container" class="table-container">
+                    <p>Selecciona un grupo y un periodo, y haz clic en "Generar Reporte" para ver los resultados.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="settings-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Configuración Global</h3>
+            <div class="form-group-toggle">
+                <label for="show-matricula-toggle">Mostrar columna "Matrícula"</label>
+                <input type="checkbox" id="show-matricula-toggle" class="toggle-switch">
+            </div>
+             <div class="form-group">
+                <label for="global-start-date">Inicio de Cuatrimestre General</label>
+                <input type="date" id="global-start-date">
+            </div>
+            <div class="form-group">
+                <label for="global-partial1-end-date">Fin del Primer Parcial General</label>
+                <input type="date" id="global-partial1-end-date">
+            </div>
+            <div class="form-group">
+                <label for="global-end-date">Fin de Cuatrimestre General</label>
+                <input type="date" id="global-end-date">
+            </div>
+            <div class="modal-actions">
+                <button id="close-settings-modal-btn" class="btn btn-primary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+     <div id="add-multiple-students-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Añadir Varios Alumnos</h3>
+            <p>Pega la lista de alumnos, uno por línea. Formato: <strong>Matrícula, Nombre</strong> o solo <strong>Nombre</strong>.</p>
+            <textarea id="student-list-textarea" rows="10"></textarea>
+            <div class="modal-actions">
+                <button id="cancel-add-multiple-btn" class="btn btn-secondary">Cancelar</button>
+                <button id="save-multiple-students-btn" class="btn btn-primary">Guardar Alumnos</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="add-student-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3>Añadir Alumno</h3>
+            <form id="add-student-form">
+                <div class="form-group">
+                    <label for="new-student-id">Matrícula (Opcional)</label>
+                    <input type="text" id="new-student-id">
+                </div>
+                <div class="form-group">
+                    <label for="new-student-name">Nombre Completo</label>
+                    <input type="text" id="new-student-name" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="cancel-add-student-btn" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Alumno</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="roll-call-modal" class="modal-backdrop hidden">
+        <div class="modal">
+            <h3 id="roll-call-title">Pase de Lista Rápido</h3>
+            <p id="roll-call-progress">Alumno 1 de 20</p>
+            <h2 id="roll-call-student-name">Nombre del Alumno Apellido Apellido</h2>
+            <div class="roll-call-actions">
+                <button data-status="Presente" class="btn btn-primary">(P) Presente</button>
+                <button data-status="Ausente" class="btn btn-danger">(A) Ausente</button>
+                <button data-status="Retardo" class="btn btn-secondary">(R) Retardo</button>
+            </div>
+            <div class="roll-call-skip">
+                <button data-status="Intercambio" class="btn btn-secondary">(I) Intercambio</button>
+                <button data-status="Pendiente" class="btn btn-secondary">(S) Saltar</button>
+            </div>
+            <div class="modal-actions">
+                <button id="finish-roll-call-btn" class="btn btn-primary">Terminar y Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./renderer.js"></script>
+</body>
+</html>
