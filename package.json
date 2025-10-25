@@ -1,5 +1,5 @@
 {
-  "name": "asistencia-pro",
+  "name": "asistencias-iaev",
   "version": "2.0.0",
   "description": "Aplicación de escritorio para gestión de asistencia docente.",
   "main": "main.js",
@@ -20,7 +20,7 @@
     "sqlite3": "^5.1.6"
   },
   "build": {
-    "appId": "com.docente.asistenciapro",
+    "appId": "com.docente.asistenciasiaev",
     "productName": "Asistencias IAEV",
     "files": [
       "**/*"
