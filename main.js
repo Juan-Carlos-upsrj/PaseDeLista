@@ -221,29 +221,32 @@ ipcMain.handle('delete-attendance', async (event, { studentId, date }) => {
 ipcMain.handle('setBulkAttendance', async (event, attendances) => {
     const sql = 'INSERT OR REPLACE INTO Attendance (student_id, attendance_date, status) VALUES (?, ?, ?)';
 
-    return new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION', err => {
-                if (err) return reject(err);
-
-                const stmt = db.prepare(sql);
-                attendances.forEach(att => {
-                    stmt.run(att.studentId, att.date, att.status, err => {
-                        if (err) return reject(err);
-                    });
-                });
-
-                stmt.finalize(err => {
+    await dbRun('BEGIN TRANSACTION');
+    try {
+        const stmt = db.prepare(sql);
+        for (const att of attendances) {
+            await new Promise((resolve, reject) => {
+                stmt.run(att.studentId, att.date, att.status, (err) => {
                     if (err) return reject(err);
-
-                    db.run('COMMIT', err => {
-                        if (err) return reject(err);
-                        resolve({ success: true, changes: attendances.length });
-                    });
+                    resolve();
                 });
             });
+        }
+        // Finalize the statement
+        await new Promise((resolve, reject) => {
+            stmt.finalize((err) => {
+                if (err) return reject(err);
+                resolve();
+            });
         });
-    });
+
+        await dbRun('COMMIT');
+        return { success: true, changes: attendances.length };
+    } catch (error) {
+        console.error('Error during bulk attendance, rolling back transaction.', error);
+        await dbRun('ROLLBACK');
+        throw error; // Propagate the error back to the renderer process
+    }
 });
 
 

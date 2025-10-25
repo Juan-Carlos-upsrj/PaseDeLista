@@ -976,19 +976,22 @@ async function renderAttendanceGrid(groupId) {
         const attendanceMap = new Map();
         attendanceData.forEach(att => {
             if (att.attendance_date === today) {
-                attendanceMap.set(att.student_id, att.status);
+                attendanceMap.set(att.student_id.toString(), att.status);
             }
         });
 
-        const pendingStudents = students.filter(s => !attendanceMap.has(s.id));
+        // Adjuntar el estado de asistencia actual a cada estudiante
+        students.forEach(s => {
+            s.currentStatus = attendanceMap.get(s.id.toString()) || 'Pendiente';
+        });
 
-        if (pendingStudents.length === 0) {
-            showNotification('Todos los alumnos de este grupo ya tienen un estado de asistencia para hoy.');
+        if (students.length === 0) {
+            showNotification('Este grupo no tiene alumnos.', 'error');
             return;
         }
 
         rollCallState = {
-            students: pendingStudents,
+            students: students,
             currentIndex: 0,
             groupId: groupId,
             attendances: []
@@ -1005,8 +1008,17 @@ async function renderAttendanceGrid(groupId) {
             return;
         }
         const student = rollCallState.students[rollCallState.currentIndex];
-        document.getElementById('roll-call-student-name').textContent = student.student_name;
-        document.getElementById('roll-call-progress').textContent = `Alumno ${rollCallState.currentIndex + 1} de ${rollCallState.students.length}`;
+        const studentNameEl = document.getElementById('roll-call-student-name');
+        const progressEl = document.getElementById('roll-call-progress');
+        const currentStatusEl = document.getElementById('roll-call-current-status');
+
+        studentNameEl.textContent = student.student_name;
+        progressEl.textContent = `Alumno ${rollCallState.currentIndex + 1} de ${rollCallState.students.length}`;
+
+        // Muestra el estado actual del alumno
+        const statusText = student.currentStatus === 'Pendiente' ? 'Sin registrar' : student.currentStatus;
+        currentStatusEl.textContent = `Estado actual: ${statusText}`;
+        currentStatusEl.className = `status-${student.currentStatus.toLowerCase()}`;
     }
 
     function processRollCallAction(status) {
