@@ -218,34 +218,43 @@ ipcMain.handle('delete-attendance', async (event, { studentId, date }) => {
     return await dbRun(sql, [studentId, date]);
 });
 
-ipcMain.handle('setBulkAttendance', async (event, attendances) => {
-    const sql = 'INSERT OR REPLACE INTO Attendance (student_id, attendance_date, status) VALUES (?, ?, ?)';
+// Replaces the old bulk update logic with a more robust transactional approach.
+ipcMain.handle('save-roll-call', async (event, { groupId, date, attendances }) => {
+    // Get all student IDs for the group to ensure we are only deleting records for this group.
+    const studentsInGroup = await dbAll('SELECT id FROM Students WHERE group_id = ?', [groupId]);
+    const studentIds = studentsInGroup.map(s => s.id);
+
+    if (studentIds.length === 0) {
+        return { success: true, changes: 0 }; // No students, nothing to do.
+    }
+
+    const deleteSql = `DELETE FROM Attendance WHERE student_id IN (${studentIds.map(() => '?').join(',')}) AND attendance_date = ?`;
+    const insertSql = 'INSERT INTO Attendance (student_id, attendance_date, status) VALUES (?, ?, ?)';
 
     await dbRun('BEGIN TRANSACTION');
     try {
-        const stmt = db.prepare(sql);
-        for (const att of attendances) {
-            await new Promise((resolve, reject) => {
-                stmt.run(att.studentId, att.date, att.status, (err) => {
+        // 1. Delete all existing records for this group on this date.
+        await dbRun(deleteSql, [...studentIds, date]);
+
+        // 2. Insert new records for students who don't have a 'Pendiente' status.
+        const filteredAttendances = attendances.filter(att => att.status !== 'Pendiente');
+        const stmt = db.prepare(insertSql);
+        for (const att of filteredAttendances) {
+             await new Promise((resolve, reject) => {
+                stmt.run(att.studentId, date, att.status, (err) => {
                     if (err) return reject(err);
                     resolve();
                 });
             });
         }
-        // Finalize the statement
-        await new Promise((resolve, reject) => {
-            stmt.finalize((err) => {
-                if (err) return reject(err);
-                resolve();
-            });
-        });
+        await new Promise((resolve, reject) => stmt.finalize(err => err ? reject(err) : resolve()));
 
         await dbRun('COMMIT');
-        return { success: true, changes: attendances.length };
+        return { success: true, changes: filteredAttendances.length };
     } catch (error) {
-        console.error('Error during bulk attendance, rolling back transaction.', error);
+        console.error('Error during save-roll-call, rolling back transaction.', error);
         await dbRun('ROLLBACK');
-        throw error; // Propagate the error back to the renderer process
+        throw error;
     }
 });
 

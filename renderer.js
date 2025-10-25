@@ -1022,12 +1022,10 @@ async function renderAttendanceGrid(groupId) {
     }
 
     function processRollCallAction(status) {
+        // Actualiza el estado del estudiante actual en la lista principal
         const student = rollCallState.students[rollCallState.currentIndex];
-        rollCallState.attendances.push({
-            studentId: student.id,
-            date: new Date().toISOString().split('T')[0],
-            status: status
-        });
+        student.currentStatus = status;
+
         rollCallState.currentIndex++;
         updateRollCallView();
     }
@@ -1055,13 +1053,18 @@ async function renderAttendanceGrid(groupId) {
         document.removeEventListener('keydown', handleRollCallKeyPress);
         rollCallModal.classList.add('hidden');
 
-        const filteredAttendances = rollCallState.attendances.filter(a => a.status !== 'Pendiente');
+        // Prepara los datos para el nuevo handler
+        const payload = {
+            groupId: rollCallState.groupId,
+            date: new Date().toISOString().split('T')[0],
+            attendances: rollCallState.students.map(s => ({ studentId: s.id, status: s.currentStatus }))
+        };
 
-        if (filteredAttendances.length > 0) {
-            await window.api.setBulkAttendance(filteredAttendances);
-            showNotification(`Pase de lista guardado para ${filteredAttendances.length} alumnos.`);
-        } else {
-            showNotification('Pase de lista finalizado sin cambios.', 'error');
+        try {
+            const result = await window.api.saveRollCall(payload);
+            showNotification(`Pase de lista guardado. ${result.changes} registros afectados.`);
+        } catch (error) {
+            showNotification(`Error al guardar el pase de lista: ${error.message}`, 'error');
         }
 
         // Navegar a la vista de asistencia y refrescar la tabla

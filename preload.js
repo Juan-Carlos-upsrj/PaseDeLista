@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld('api', {
     getAttendance: (groupId) => ipcRenderer.invoke('get-attendance', groupId),
     setAttendance: (attendance) => ipcRenderer.invoke('set-attendance', attendance),
     deleteAttendance: (data) => ipcRenderer.invoke('delete-attendance', data),
-    setBulkAttendance: (attendances) => ipcRenderer.invoke('setBulkAttendance', attendances),
+    saveRollCall: (data) => ipcRenderer.invoke('save-roll-call', data),
     
     // Funciones para Configuración
     getSettings: () => ipcRenderer.invoke('get-settings'),
