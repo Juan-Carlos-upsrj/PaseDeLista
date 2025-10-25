@@ -360,6 +360,17 @@ body {
 }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
+#alumnos.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Ocupa todo el alto del contenedor padre */
+}
+
+.students-table-container {
+    flex-grow: 1; /* Permite que este contenedor crezca y ocupe el espacio disponible */
+    overflow-y: auto; /* Muestra el scrollbar vertical solo cuando sea necesario */
+    border-bottom: 1px solid var(--border-color);
+}
 
 
 /* Tablas */
