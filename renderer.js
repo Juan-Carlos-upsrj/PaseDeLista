@@ -308,6 +308,16 @@ async function renderAttendanceGrid(groupId) {
     tableHTML += '</tbody></table>';
 
     attendanceGridContainer.innerHTML = tableHTML;
+
+    // Desplazamiento automático a la columna de hoy
+    const todayHeader = attendanceGridContainer.querySelector('#attendance-table .today-col');
+    if (todayHeader) {
+        todayHeader.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'center'
+        });
+    }
 }
 
     attendanceGridContainer.addEventListener('click', (e) => {

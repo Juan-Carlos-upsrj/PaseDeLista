@@ -480,8 +480,13 @@ body {
 }
 
 /* Resaltado del día actual */
-.today-col {
+#attendance-table th.today-col, #attendance-table td.today-col {
     background-color: var(--highlight-bg) !important;
+    border-left: 2px solid var(--primary-color);
+    border-right: 2px solid var(--primary-color);
+}
+#attendance-table thead th.today-col {
+    border-top: 2px solid var(--primary-color);
 }
 
 /* Colores para los estados de asistencia */
