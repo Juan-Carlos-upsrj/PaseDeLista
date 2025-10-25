@@ -426,9 +426,11 @@ async function renderAttendanceGrid(groupId) {
     const exportCsvBtn = document.getElementById('export-csv-btn');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
     const reportSearchInput = document.getElementById('report-search-input');
+    const lowAttendanceFilterToggle = document.getElementById('low-attendance-filter-toggle');
 
     generateReportBtn.addEventListener('click', generateReport);
     reportSearchInput.addEventListener('input', () => renderReportTable(state.reportData));
+    lowAttendanceFilterToggle.addEventListener('change', () => renderReportTable(state.reportData));
 
     function renderReportTable(data) {
         if (!data) {
@@ -437,10 +439,20 @@ async function renderAttendanceGrid(groupId) {
         }
 
         const searchTerm = reportSearchInput.value.toLowerCase();
-        const filteredData = data.filter(row => row.studentName.toLowerCase().includes(searchTerm));
+        const lowAttendanceOnly = lowAttendanceFilterToggle.checked;
+
+        let filteredData = data.filter(row => {
+            const nameMatch = row.studentName.toLowerCase().includes(searchTerm);
+            const idMatch = row.studentId && row.studentId.toLowerCase().includes(searchTerm);
+            return nameMatch || idMatch;
+        });
+
+        if (lowAttendanceOnly) {
+            filteredData = filteredData.filter(row => parseFloat(row.percentage) < 80.0);
+        }
 
         if (filteredData.length === 0) {
-            reportResultsContainer.innerHTML = '<p>No se encontraron alumnos que coincidan con la búsqueda.</p>';
+            reportResultsContainer.innerHTML = '<p>No se encontraron alumnos que coincidan con los filtros aplicados.</p>';
             return;
         }
 

@@ -202,7 +202,11 @@
                     </div>
                     <div class="form-group">
                         <label for="report-search-input">Buscar Alumno</label>
-                        <input type="search" id="report-search-input" placeholder="Nombre del alumno...">
+                        <input type="search" id="report-search-input" placeholder="Nombre o matrícula...">
+                    </div>
+                    <div class="form-group-toggle" style="align-self: flex-end; margin-bottom: 1rem;">
+                        <input type="checkbox" id="low-attendance-filter-toggle" class="toggle-switch">
+                        <label for="low-attendance-filter-toggle">Mostrar solo baja asistencia (&lt; 80%)</label>
                     </div>
                     <button id="generate-report-btn" class="btn btn-primary">Generar Reporte</button>
                     <div class="form-actions" style="margin-top: 0; padding-top: 0;">
