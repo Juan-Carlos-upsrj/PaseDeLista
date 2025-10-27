@@ -93,6 +93,63 @@ function createTables() {
     });
 }
 
+// --- MIGRACIÓN DE BASE DE DATOS ---
+// Función para actualizar el esquema de la base de datos si es una versión antigua.
+async function runMigrations() {
+    try {
+        const attendanceTableInfo = await dbAll("SELECT sql FROM sqlite_master WHERE type='table' AND name='Attendance'");
+
+        // Si la tabla no existe o el esquema ya es nuevo (contiene 'Intercambio'), no se hace nada.
+        if (attendanceTableInfo.length === 0 || attendanceTableInfo[0].sql.includes('Intercambio')) {
+            return; // No se necesita migración.
+        }
+
+        console.log("Iniciando migración de la tabla de Asistencia a la nueva versión...");
+
+        // SQLite no permite modificar constraints directamente. El proceso seguro es:
+        // 1. Renombrar la tabla vieja.
+        // 2. Crear la tabla nueva con el esquema correcto.
+        // 3. Copiar los datos compatibles de la tabla vieja a la nueva.
+        // 4. Eliminar la tabla vieja.
+        // Todo esto se hace en una transacción para asegurar la integridad de los datos.
+        const migrationSql = `
+            BEGIN TRANSACTION;
+            ALTER TABLE Attendance RENAME TO Attendance_old;
+            CREATE TABLE Attendance (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                student_id INTEGER NOT NULL,
+                attendance_date TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('Presente', 'Ausente', 'Retardo', 'Intercambio', 'Justificada')),
+                FOREIGN KEY (student_id) REFERENCES Students (id) ON DELETE CASCADE,
+                UNIQUE(student_id, attendance_date)
+            );
+            INSERT INTO Attendance(id, student_id, attendance_date, status)
+            SELECT id, student_id, attendance_date, status FROM Attendance_old WHERE status IN ('Presente', 'Ausente', 'Retardo');
+            DROP TABLE Attendance_old;
+            COMMIT;
+        `;
+
+        await new Promise((resolve, reject) => {
+            db.exec(migrationSql, (err) => {
+                if (err) {
+                    console.error("Error durante la migración, revirtiendo...", err);
+                    // Si algo falla, se intenta revertir la transacción.
+                    db.exec('ROLLBACK;', () => reject(err));
+                } else {
+                    console.log("Migración de la tabla de Asistencia completada exitosamente.");
+                    resolve();
+                }
+            });
+        });
+
+    } catch (err) {
+        // Este error es crítico, ya que la app podría no funcionar.
+        console.error("Error crítico al ejecutar la migración de la base de datos:", err);
+        throw err; // Lanza el error para que el proceso de inicio se detenga.
+    }
+}
+
+
 // --- GESTIÓN DE LA VENTANA PRINCIPAL ---
 function createWindow() {
     const mainWindow = new BrowserWindow({
@@ -111,7 +168,15 @@ function createWindow() {
     mainWindow.loadFile('index.html');
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+    try {
+        await runMigrations();
+        createWindow();
+    } catch (err) {
+        dialog.showErrorBox('Error Crítico de Migración', `No se pudo actualizar la base de datos a la última versión. La aplicación se cerrará.\n\nError: ${err.message}`);
+        app.quit();
+    }
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {

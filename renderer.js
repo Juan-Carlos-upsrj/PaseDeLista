@@ -560,19 +560,24 @@ async function renderAttendanceGrid(groupId) {
         }
 
         const classDays = group.class_days.split(',').map(Number);
-        const classDatesInPeriod = [];
-        for (let d = new Date(groupStartDate); d <= groupEndDate; d.setDate(d.getDate() + 1)) {
-            if (classDays.includes(d.getDay())) {
-                const currentDate = new Date(d);
-                if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
-                    classDatesInPeriod.push(currentDate.toISOString().split('T')[0]);
-                }
-            }
-        }
+        const attendanceMap = new Map();
+        attendanceData.forEach(att => {
+            const key = `${att.student_id}-${att.attendance_date}`;
+            attendanceMap.set(key, att.status);
+        });
 
-        const totalClasses = classDatesInPeriod.length;
+        // Determina las fechas únicas en las que se tomó asistencia dentro del período.
+        const attendedDatesInPeriod = [...new Set(attendanceData
+            .map(att => att.attendance_date)
+            .filter(dateString => {
+                const attDate = new Date(dateString + 'T00:00:00');
+                return attDate >= periodStartDate && attDate <= periodEndDate;
+            })
+        )];
+
+        const totalClasses = attendedDatesInPeriod.length;
         if (totalClasses === 0) {
-            reportResultsContainer.innerHTML = '<p>No hay clases programadas en el periodo seleccionado.</p>';
+            reportResultsContainer.innerHTML = '<p>No se ha tomado asistencia para este grupo en el periodo seleccionado.</p>';
             return;
         }
 
@@ -581,12 +586,15 @@ async function renderAttendanceGrid(groupId) {
 
         const reportResults = students.map(student => {
             let presente = 0, ausente = 0, retardo = 0;
-            classDatesInPeriod.forEach(date => {
+
+            // Itera solo sobre los días con asistencia registrada
+            attendedDatesInPeriod.forEach(date => {
                 const status = attendanceMap.get(`${student.id}-${date}`);
                 if (status === 'Presente') presente++;
                 else if (status === 'Retardo') retardo++;
-                else ausente++;
+                else ausente++; // Asumir 'Ausente' si no hay registro en un día con asistencia
             });
+
             const attendancePercentage = totalClasses > 0 ? ((presente + retardo) / totalClasses) * 100 : 0;
             return {
                 studentName: student.student_name,
