@@ -96,57 +96,67 @@ function createTables() {
 // --- MIGRACIÓN DE BASE DE DATOS ---
 // Función para actualizar el esquema de la base de datos si es una versión antigua.
 async function runMigrations() {
-    try {
-        const attendanceTableInfo = await dbAll("SELECT sql FROM sqlite_master WHERE type='table' AND name='Attendance'");
+    return new Promise(async (resolve, reject) => {
+        try {
+            const attendanceTableInfo = await dbAll("SELECT sql FROM sqlite_master WHERE type='table' AND name='Attendance'");
 
-        // Si la tabla no existe o el esquema ya es nuevo (contiene 'Intercambio'), no se hace nada.
-        if (attendanceTableInfo.length === 0 || attendanceTableInfo[0].sql.includes('Intercambio')) {
-            return; // No se necesita migración.
-        }
+            if (attendanceTableInfo.length === 0 || attendanceTableInfo[0].sql.includes('Intercambio')) {
+                return resolve(); // No se necesita migración.
+            }
 
-        console.log("Iniciando migración de la tabla de Asistencia a la nueva versión...");
+            console.log("Iniciando migración de la tabla de Asistencia...");
 
-        // SQLite no permite modificar constraints directamente. El proceso seguro es:
-        // 1. Renombrar la tabla vieja.
-        // 2. Crear la tabla nueva con el esquema correcto.
-        // 3. Copiar los datos compatibles de la tabla vieja a la nueva.
-        // 4. Eliminar la tabla vieja.
-        // Todo esto se hace en una transacción para asegurar la integridad de los datos.
-        const migrationSql = `
-            BEGIN TRANSACTION;
-            ALTER TABLE Attendance RENAME TO Attendance_old;
-            CREATE TABLE Attendance (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER NOT NULL,
-                attendance_date TEXT NOT NULL,
-                status TEXT NOT NULL CHECK(status IN ('Presente', 'Ausente', 'Retardo', 'Intercambio', 'Justificada')),
-                FOREIGN KEY (student_id) REFERENCES Students (id) ON DELETE CASCADE,
-                UNIQUE(student_id, attendance_date)
-            );
-            INSERT INTO Attendance(id, student_id, attendance_date, status)
-            SELECT id, student_id, attendance_date, status FROM Attendance_old WHERE status IN ('Presente', 'Ausente', 'Retardo');
-            DROP TABLE Attendance_old;
-            COMMIT;
-        `;
+            // Usar db.serialize para asegurar la ejecución secuencial y transaccional.
+            db.serialize(() => {
+                db.run("BEGIN TRANSACTION;", (err) => {
+                    if (err) return reject(new Error("No se pudo iniciar la transacción."));
+                });
 
-        await new Promise((resolve, reject) => {
-            db.exec(migrationSql, (err) => {
-                if (err) {
-                    console.error("Error durante la migración, revirtiendo...", err);
-                    // Si algo falla, se intenta revertir la transacción.
-                    db.exec('ROLLBACK;', () => reject(err));
-                } else {
-                    console.log("Migración de la tabla de Asistencia completada exitosamente.");
+                db.run("ALTER TABLE Attendance RENAME TO Attendance_old;", (err) => {
+                    if (err) return reject(new Error("No se pudo renombrar la tabla antigua."));
+                });
+
+                // Recrea la tabla con el esquema correcto y completo
+                db.run(`
+                    CREATE TABLE Attendance (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        student_id INTEGER NOT NULL,
+                        attendance_date TEXT NOT NULL,
+                        status TEXT NOT NULL CHECK(status IN ('Presente', 'Ausente', 'Retardo', 'Intercambio', 'Justificada')),
+                        FOREIGN KEY (student_id) REFERENCES Students (id) ON DELETE CASCADE,
+                        UNIQUE(student_id, attendance_date)
+                    );
+                `, (err) => {
+                    if (err) return reject(new Error("No se pudo crear la nueva tabla de Asistencia."));
+                });
+
+                // Copia solo los datos que son válidos en el esquema antiguo.
+                db.run(`
+                    INSERT INTO Attendance(id, student_id, attendance_date, status)
+                    SELECT id, student_id, attendance_date, status FROM Attendance_old WHERE status IN ('Presente', 'Ausente', 'Retardo');
+                `, (err) => {
+                     if (err) return reject(new Error("No se pudieron copiar los datos a la nueva tabla."));
+                });
+
+                db.run("DROP TABLE Attendance_old;", (err) => {
+                    if (err) return reject(new Error("No se pudo eliminar la tabla antigua."));
+                });
+
+                db.run("COMMIT;", (err) => {
+                    if (err) {
+                        return reject(new Error("No se pudo completar la transacción de migración."));
+                    }
+                    console.log("Migración de la base de datos completada exitosamente.");
                     resolve();
-                }
+                });
             });
-        });
 
-    } catch (err) {
-        // Este error es crítico, ya que la app podría no funcionar.
-        console.error("Error crítico al ejecutar la migración de la base de datos:", err);
-        throw err; // Lanza el error para que el proceso de inicio se detenga.
-    }
+        } catch (err) {
+            console.error("Error crítico durante el proceso de migración:", err);
+            db.run("ROLLBACK;"); // Intenta revertir si algo falla
+            reject(err);
+        }
+    });
 }
 
 
