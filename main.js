@@ -447,6 +447,42 @@ ipcMain.handle('export-pdf', async (event, data) => {
     return { success: false, cancelled: true };
 });
 
+ipcMain.handle('export-grid-pdf', async (event, { htmlContent, groupName }) => {
+    const { filePath } = await dialog.showSaveDialog({
+        title: 'Exportar Tabla de Asistencia a PDF',
+        defaultPath: `asistencia-${groupName}.pdf`,
+        filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
+    });
+
+    if (filePath) {
+        const pdfWindow = new BrowserWindow({ show: false, webPreferences: { contextIsolation: false } });
+
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+
+        try {
+            // Espera un breve momento para asegurar que todo el contenido (especialmente CSS) se haya renderizado.
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const pdfData = await pdfWindow.webContents.printToPDF({
+                landscape: true,
+                pageSize: 'A3', // Un tamaño más grande para que quepa mejor la tabla
+                printBackground: true,
+                 margins: { top: 20, bottom: 20, left: 20, right: 20 }
+            });
+
+            fs.writeFileSync(filePath, pdfData);
+            pdfWindow.close();
+            return { success: true, path: filePath };
+        } catch (err) {
+            console.error("Error generando el PDF de la tabla:", err);
+            pdfWindow.close();
+            return { success: false, error: err.message };
+        }
+    }
+    return { success: false, cancelled: true };
+});
+
+
 // --- LÓGICA DEL DASHBOARD ---
 ipcMain.handle('getDashboardInfo', async () => {
     const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key IN ("globalStartDate", "globalEndDate")');

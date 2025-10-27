@@ -40,4 +40,9 @@ contextBridge.exposeInMainWorld('api', {
 
     // Función para obtener las frases motivacionales
     getQuotes: () => ipcRenderer.invoke('get-quotes'),
+
+    // Exportación
+    exportCsv: (data) => ipcRenderer.invoke('export-csv', data),
+    exportPdf: (data) => ipcRenderer.invoke('export-pdf', data),
+    exportGridPdf: (data) => ipcRenderer.invoke('export-grid-pdf', data)
 });
