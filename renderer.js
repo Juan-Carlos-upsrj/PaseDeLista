@@ -427,6 +427,7 @@ async function renderAttendanceGrid(groupId) {
     const exportPdfBtn = document.getElementById('export-pdf-btn');
     const reportSearchInput = document.getElementById('report-search-input');
     const lowAttendanceFilterToggle = document.getElementById('low-attendance-filter-toggle');
+    let attendanceChart = null; // Variable para mantener la instancia del gráfico
 
     generateReportBtn.addEventListener('click', generateReport);
     reportSearchInput.addEventListener('input', () => renderReportTable(state.reportData));
@@ -484,6 +485,9 @@ async function renderAttendanceGrid(groupId) {
         tableHTML += '</tbody></table>';
         reportResultsContainer.innerHTML = tableHTML;
         applyMatriculaVisibility();
+
+        // Después de renderizar la tabla, renderiza el gráfico
+        renderAttendanceChart(data);
     }
 
     exportCsvBtn.addEventListener('click', async () => {
@@ -598,6 +602,73 @@ async function renderAttendanceGrid(groupId) {
         renderReportTable(state.reportData);
         exportCsvBtn.disabled = false;
         exportPdfBtn.disabled = false;
+    }
+
+    function renderAttendanceChart(data) {
+        const ctx = document.getElementById('attendance-chart').getContext('2d');
+
+        if (attendanceChart) {
+            attendanceChart.destroy(); // Destruye el gráfico anterior para evitar superposiciones
+        }
+
+        if (!data || data.length === 0) {
+            document.getElementById('report-chart-container').style.display = 'none';
+            return;
+        }
+        document.getElementById('report-chart-container').style.display = 'flex';
+
+
+        // Calcular totales para todo el grupo
+        const totals = data.reduce((acc, row) => {
+            acc.presente += row.presente;
+            acc.retardo += row.retardo;
+            acc.ausente += row.ausente;
+            return acc;
+        }, { presente: 0, retardo: 0, ausente: 0 });
+
+        attendanceChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Asistencias', 'Retardos', 'Faltas'],
+                datasets: [{
+                    label: 'Resumen General del Grupo',
+                    data: [totals.presente, totals.retardo, totals.ausente],
+                    backgroundColor: [
+                        'rgba(34, 197, 94, 0.6)',  // Verde para Asistencias
+                        'rgba(249, 115, 22, 0.6)', // Naranja para Retardos
+                        'rgba(239, 68, 68, 0.6)'  // Rojo para Faltas
+                    ],
+                    borderColor: [
+                        'rgba(34, 197, 94, 1)',
+                        'rgba(249, 115, 22, 1)',
+                        'rgba(239, 68, 68, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                             // Asegura que los ticks sean enteros
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Resumen de Asistencia General del Grupo'
+                    }
+                }
+            }
+        });
     }
 
     // --- LÓGICA DE CONFIGURACIÓN ---

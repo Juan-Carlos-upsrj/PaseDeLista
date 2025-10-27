@@ -375,6 +375,32 @@ body {
 
 /* Tablas */
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
+
+.report-content-area {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+    /* Calcula la altura para llenar el espacio, restando la altura de la barra de herramientas y los márgenes */
+    height: calc(100vh - 15rem);
+}
+
+#report-results-container {
+    flex-basis: 60%;
+    flex-grow: 1;
+}
+
+#report-chart-container {
+    flex-basis: 40%;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background-color: var(--card-bg);
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
 .data-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td {
     padding: 0.75rem;

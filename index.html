@@ -214,8 +214,13 @@
                          <button id="export-pdf-btn" class="btn btn-secondary" disabled>Exportar a PDF</button>
                     </div>
                 </div>
-                <div id="report-results-container" class="table-container">
-                    <p>Selecciona un grupo y un periodo, y haz clic en "Generar Reporte" para ver los resultados.</p>
+                <div class="report-content-area">
+                    <div id="report-results-container" class="table-container">
+                        <p>Selecciona un grupo y un periodo, y haz clic en "Generar Reporte" para ver los resultados.</p>
+                    </div>
+                    <div id="report-chart-container">
+                        <canvas id="attendance-chart"></canvas>
+                    </div>
                 </div>
             </section>
         </main>
@@ -324,6 +329,7 @@
         </div>
     </div>
 
+    <script src="./node_modules/chart.js/dist/chart.umd.js"></script>
     <script src="./renderer.js"></script>
 </body>
 </html>
