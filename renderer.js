@@ -398,7 +398,7 @@ async function renderAttendanceGrid(groupId) {
     });
 
     document.getElementById('export-grid-pdf-btn').addEventListener('click', () => {
-        exportGridToPdf();
+        exportFullAttendanceGridToPdf();
     });
 
     document.getElementById('quick-pass-btn').addEventListener('click', async () => {
@@ -425,9 +425,8 @@ async function renderAttendanceGrid(groupId) {
     });
 
     // --- LÓGICA DE EXPORTACIÓN DE TABLA DE ASISTENCIA ---
-    async function exportGridToPdf() {
-        const gridContainer = document.getElementById('attendance-grid-container');
-        const table = gridContainer.querySelector('#attendance-table');
+    async function exportFullAttendanceGridToPdf() {
+        const table = document.getElementById('attendance-table');
         const selectedOption = attendanceGroupSelect.options[attendanceGroupSelect.selectedIndex];
 
         if (!table) {
@@ -439,60 +438,45 @@ async function renderAttendanceGrid(groupId) {
             return;
         }
 
-        showNotification('Generando PDF...');
-
-        // Clona la tabla para no afectar la tabla visible
-        const tableClone = table.cloneNode(true);
-        // Elimina el posible scrollbar horizontal del contenedor clonado si existe
-        tableClone.style.overflow = 'visible';
-
-        // Obtén todos los estilos CSS de la página
-        let cssString = '';
-        for (const sheet of document.styleSheets) {
-            try {
-                for (const rule of sheet.cssRules) {
-                    cssString += rule.cssText;
-                }
-            } catch (e) {
-                console.warn("No se pudo leer una hoja de estilos por restricciones de seguridad:", e);
-            }
-        }
-
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html lang="es">
-            <head>
-                <meta charset="UTF-8">
-                <title>Reporte de Asistencia</title>
-                <style>
-                    body { font-family: system-ui, -apple-system, sans-serif; }
-                    table { border-collapse: collapse; width: 100%; }
-                    th, td { border: 1px solid #ccc; padding: 6px; text-align: center; white-space: nowrap; font-size: 10px; }
-                    th { background-color: #f2f2f2; }
-                    .student-name-cell { text-align: left; font-weight: bold; }
-                    /* Incrusta todos los estilos para asegurar la consistencia */
-                    ${cssString}
-                </style>
-            </head>
-            <body>
-                <h1>Reporte de Asistencia - ${selectedOption.textContent}</h1>
-                ${tableClone.outerHTML}
-            </body>
-            </html>
-        `;
+        showNotification('Preparando datos para el PDF...');
 
         try {
-            const result = await window.api.exportGridPdf({
-                htmlContent,
-                groupName: selectedOption.textContent.replace(/[^a-zA-Z0-9]/g, '_') // Nombre de archivo seguro
+            // 1. Extraer las fechas del encabezado
+            // Se toman de la primera fila de datos para asegurar que tenemos todas las celdas
+            const firstDataRowCells = table.querySelectorAll('tbody tr:first-child td.status-cell');
+            if (firstDataRowCells.length === 0) {
+                 showNotification('No hay fechas de asistencia para exportar.', 'error');
+                 return;
+            }
+            const dates = Array.from(firstDataRowCells).map(cell => cell.dataset.date);
+
+            // 2. Extraer los datos de los alumnos
+            const studentRows = table.querySelectorAll('tbody tr');
+            const students = Array.from(studentRows).map(row => {
+                const name = row.querySelector('.student-name-cell').textContent;
+                const attendanceCells = row.querySelectorAll('td.status-cell');
+                const attendances = {};
+                attendanceCells.forEach(cell => {
+                    attendances[cell.dataset.date] = { status: cell.dataset.status };
+                });
+                return { name, attendances };
             });
+
+            // 3. Llamar al nuevo handler del backend
+            showNotification('Generando PDF, por favor espera...');
+            const result = await window.api.exportFullAttendancePdf({
+                groupName: selectedOption.textContent,
+                dates,
+                students
+            });
+
             if (result.success) {
                 showNotification('PDF de la tabla de asistencia exportado con éxito.');
             } else if (!result.cancelled) {
                 showNotification(`Error al exportar PDF: ${result.error}`, 'error');
             }
         } catch (error) {
-            showNotification(`Error al exportar PDF: ${error.message}`, 'error');
+            showNotification(`Se produjo un error al preparar los datos para el PDF: ${error.message}`, 'error');
         }
     }
 

@@ -447,39 +447,96 @@ ipcMain.handle('export-pdf', async (event, data) => {
     return { success: false, cancelled: true };
 });
 
-ipcMain.handle('export-grid-pdf', async (event, { htmlContent, groupName }) => {
+ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, students }) => {
     const { filePath } = await dialog.showSaveDialog({
-        title: 'Exportar Tabla de Asistencia a PDF',
-        defaultPath: `asistencia-${groupName}.pdf`,
+        title: 'Exportar Tabla Completa de Asistencia a PDF',
+        defaultPath: `asistencia-completa-${groupName.replace(/\s+/g, '_')}.pdf`,
         filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
     });
 
-    if (filePath) {
-        const pdfWindow = new BrowserWindow({ show: false, webPreferences: { contextIsolation: false } });
-
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
-
-        try {
-            // Espera un breve momento para asegurar que todo el contenido (especialmente CSS) se haya renderizado.
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            const pdfData = await pdfWindow.webContents.printToPDF({
-                landscape: true,
-                pageSize: 'A3', // Un tamaño más grande para que quepa mejor la tabla
-                printBackground: true,
-                 margins: { top: 20, bottom: 20, left: 20, right: 20 }
-            });
-
-            fs.writeFileSync(filePath, pdfData);
-            pdfWindow.close();
-            return { success: true, path: filePath };
-        } catch (err) {
-            console.error("Error generando el PDF de la tabla:", err);
-            pdfWindow.close();
-            return { success: false, error: err.message };
-        }
+    if (!filePath) {
+        return { success: false, cancelled: true };
     }
-    return { success: false, cancelled: true };
+
+    try {
+        // 1. Leer la plantilla HTML
+        const templatePath = path.join(__dirname, 'pdf-template.html');
+        let templateHtml = fs.readFileSync(templatePath, 'utf8');
+
+        // 2. Generar encabezado de la tabla (thead)
+        let tableHead = '<tr><th class="sticky-col">Alumno</th>';
+        dates.forEach(date => {
+            const [year, month, day] = date.split('-');
+            tableHead += `<th>${day}/${month}</th>`;
+        });
+        tableHead += '</tr>';
+
+        // 3. Generar cuerpo de la tabla (tbody)
+        let tableBody = '';
+        students.forEach(student => {
+            tableBody += `<tr><td class="sticky-col">${student.name}</td>`;
+            dates.forEach(date => {
+                const attendance = student.attendances[date] || { status: '' };
+                let statusChar = '';
+                switch (attendance.status) {
+                    case 'Presente': statusChar = 'P'; break;
+                    case 'Ausente': statusChar = 'A'; break;
+                    case 'Retardo': statusChar = 'R'; break;
+                    case 'Justificada': statusChar = 'J'; break;
+                    case 'Intercambio': statusChar = 'I'; break;
+                }
+                tableBody += `<td>${statusChar}</td>`;
+            });
+            tableBody += '</tr>';
+        });
+
+        // 4. Inyectar datos en la plantilla
+        const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        const logoLeftPath = path.join(__dirname, 'assets', 'logo-left.svg');
+        const logoRightPath = path.join(__dirname, 'assets', 'logo-right.svg');
+
+        const logoLeftb64 = fs.readFileSync(logoLeftPath).toString('base64');
+        const logoRightb64 = fs.readFileSync(logoRightPath).toString('base64');
+
+        const logoLeftSrc = `data:image/svg+xml;base64,${logoLeftb64}`;
+        const logoRightSrc = `data:image/svg+xml;base64,${logoRightb64}`;
+
+        templateHtml = templateHtml
+            .replace('{{logo_left_src}}', logoLeftSrc)
+            .replace('{{logo_right_src}}', logoRightSrc)
+            .replace('{{group_name}}', groupName)
+            .replace('{{current_date}}', currentDate)
+            .replace('{{table_head_content}}', tableHead)
+            .replace('{{table_body_content}}', tableBody);
+
+        // 5. Crear ventana oculta e imprimir a PDF
+        const pdfWindow = new BrowserWindow({
+            show: false,
+            webPreferences: { contextIsolation: true }
+        });
+
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(templateHtml)}`);
+
+        await new Promise(resolve => setTimeout(resolve, 500)); // Espera breve para renderizado
+
+        const pdfData = await pdfWindow.webContents.printToPDF({
+            landscape: true,
+            pageSize: 'A3',
+            printBackground: true,
+            margins: { top: 20, bottom: 20, left: 20, right: 20 }
+        });
+
+        // 6. Guardar el PDF y limpiar
+        fs.writeFileSync(filePath, pdfData);
+        pdfWindow.close();
+
+        return { success: true, path: filePath };
+
+    } catch (err) {
+        console.error("Error al generar el PDF completo de asistencia:", err);
+        return { success: false, error: err.message };
+    }
 });
 
 
