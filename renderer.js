@@ -401,6 +401,17 @@ async function renderAttendanceGrid(groupId) {
         exportFullAttendanceGridToPdf();
     });
 
+    document.getElementById('export-pdf-btn').addEventListener('click', async () => {
+        if (state.reportData) {
+            const result = await window.api.exportPdf(state.reportData);
+            if (result.success) {
+                showNotification('Reporte PDF exportado con éxito.');
+            } else if (!result.cancelled) {
+                showNotification(`Error al exportar a PDF: ${result.error}`, 'error');
+            }
+        }
+    });
+
     document.getElementById('quick-pass-btn').addEventListener('click', async () => {
         const groupId = parseInt(attendanceGroupSelect.value);
         if (!groupId) return;
@@ -562,16 +573,6 @@ async function renderAttendanceGrid(groupId) {
         }
     });
 
-    exportPdfBtn.addEventListener('click', async () => {
-        if (state.reportData) {
-            const result = await window.api.exportPdf(state.reportData);
-            if (result.success) {
-                showNotification('Reporte PDF exportado con éxito.');
-            } else if (!result.cancelled) {
-                showNotification(`Error al exportar a PDF: ${result.error}`, 'error');
-            }
-        }
-    });
 
     async function generateReport() {
         const groupId = document.getElementById('report-group-select').value;
