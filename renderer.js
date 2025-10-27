@@ -576,8 +576,22 @@ async function renderAttendanceGrid(groupId) {
         )];
 
         const totalClasses = attendedDatesInPeriod.length;
+
+        // Si no hay clases con asistencia en el período, genera un reporte con ceros.
         if (totalClasses === 0) {
-            reportResultsContainer.innerHTML = '<p>No se ha tomado asistencia para este grupo en el periodo seleccionado.</p>';
+            const reportResults = students.map(student => ({
+                studentName: student.student_name,
+                studentId: student.student_id,
+                presente: 0,
+                retardo: 0,
+                ausente: 0,
+                percentage: '0.0'
+            }));
+
+            state.reportData = reportResults;
+            renderReportTable(state.reportData);
+            exportCsvBtn.disabled = false;
+            exportPdfBtn.disabled = false;
             return;
         }
 
