@@ -463,34 +463,37 @@ ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, s
         const templatePath = path.join(__dirname, 'pdf-template.html');
         let templateHtml = fs.readFileSync(templatePath, 'utf8');
 
-        // 2. Generar encabezado de la tabla (thead)
-        let tableHead = '<tr><th class="sticky-col">Alumno</th>';
+        // 2. Generar la tabla HTML completa
+        let tableHead = '<thead><tr><th class="student-name-cell">Alumno</th>';
         dates.forEach(date => {
             const [year, month, day] = date.split('-');
             tableHead += `<th>${day}/${month}</th>`;
         });
-        tableHead += '</tr>';
+        tableHead += '</tr></thead>';
 
-        // 3. Generar cuerpo de la tabla (tbody)
-        let tableBody = '';
+        let tableBody = '<tbody>';
         students.forEach(student => {
-            tableBody += `<tr><td class="sticky-col">${student.name}</td>`;
+            tableBody += `<tr><td class="student-name-cell">${student.name}</td>`;
             dates.forEach(date => {
                 const attendance = student.attendances[date] || { status: '' };
                 let statusChar = '';
+                let statusClass = 'status-pendiente'; // Default class
                 switch (attendance.status) {
-                    case 'Presente': statusChar = 'P'; break;
-                    case 'Ausente': statusChar = 'A'; break;
-                    case 'Retardo': statusChar = 'R'; break;
-                    case 'Justificada': statusChar = 'J'; break;
-                    case 'Intercambio': statusChar = 'I'; break;
+                    case 'Presente': statusChar = 'P'; statusClass = 'status-presente'; break;
+                    case 'Ausente': statusChar = 'A'; statusClass = 'status-ausente'; break;
+                    case 'Retardo': statusChar = 'R'; statusClass = 'status-retardo'; break;
+                    case 'Justificada': statusChar = 'J'; statusClass = 'status-justificada'; break;
+                    case 'Intercambio': statusChar = 'I'; statusClass = 'status-intercambio'; break;
                 }
-                tableBody += `<td>${statusChar}</td>`;
+                tableBody += `<td class="${statusClass}">${statusChar}</td>`;
             });
             tableBody += '</tr>';
         });
+        tableBody += '</tbody>';
 
-        // 4. Inyectar datos en la plantilla
+        const fullTableHtml = `<table>${tableHead}${tableBody}</table>`;
+
+        // 3. Inyectar datos en la plantilla
         const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
         const logoLeftPath = path.join(__dirname, 'assets', 'logo-left.svg');
@@ -503,14 +506,14 @@ ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, s
         const logoRightSrc = `data:image/svg+xml;base64,${logoRightb64}`;
 
         templateHtml = templateHtml
-            .replace('{{logo_left_src}}', logoLeftSrc)
-            .replace('{{logo_right_src}}', logoRightSrc)
+            .replace('{{report_title}}', `Reporte de Asistencia - ${groupName}`)
+            .replace('{{logo_left}}', logoLeftSrc)
+            .replace('{{logo_right}}', logoRightSrc)
             .replace('{{group_name}}', groupName)
-            .replace('{{current_date}}', currentDate)
-            .replace('{{table_head_content}}', tableHead)
-            .replace('{{table_body_content}}', tableBody);
+            .replace('{{report_date}}', currentDate)
+            .replace('{{attendance_table}}', fullTableHtml);
 
-        // 5. Crear ventana oculta e imprimir a PDF
+        // 4. Crear ventana oculta e imprimir a PDF
         const pdfWindow = new BrowserWindow({
             show: false,
             webPreferences: { contextIsolation: true }
@@ -518,16 +521,16 @@ ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, s
 
         await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(templateHtml)}`);
 
-        await new Promise(resolve => setTimeout(resolve, 500)); // Espera breve para renderizado
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const pdfData = await pdfWindow.webContents.printToPDF({
             landscape: true,
             pageSize: 'A3',
             printBackground: true,
-            margins: { top: 20, bottom: 20, left: 20, right: 20 }
+            margins: { top: 40, bottom: 40, left: 40, right: 40 }
         });
 
-        // 6. Guardar el PDF y limpiar
+        // 5. Guardar el PDF y limpiar
         fs.writeFileSync(filePath, pdfData);
         pdfWindow.close();
 

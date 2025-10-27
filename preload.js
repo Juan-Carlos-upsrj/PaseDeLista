@@ -44,5 +44,5 @@ contextBridge.exposeInMainWorld('api', {
     // Exportación
     exportCsv: (data) => ipcRenderer.invoke('export-csv', data),
     exportPdf: (data) => ipcRenderer.invoke('export-pdf', data),
-    exportGridPdf: (data) => ipcRenderer.invoke('export-grid-pdf', data)
+    exportFullAttendancePdf: (data) => ipcRenderer.invoke('export-full-attendance-pdf', data)
 });
