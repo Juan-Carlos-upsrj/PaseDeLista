@@ -595,9 +595,6 @@ async function renderAttendanceGrid(groupId) {
             return;
         }
 
-        const attendanceMap = new Map();
-        attendanceData.forEach(att => attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status));
-
         const reportResults = students.map(student => {
             let presente = 0, ausente = 0, retardo = 0;
 
