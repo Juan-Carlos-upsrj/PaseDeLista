@@ -448,9 +448,16 @@ ipcMain.handle('export-pdf', async (event, data) => {
 });
 
 ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, students }) => {
+    // Obtener el periodo cuatrimestral desde la configuración para el nombre del archivo
+    const settingsRows = await dbAll('SELECT key, value FROM Settings WHERE key IN ("globalStartDate", "globalEndDate")');
+    const startDate = settingsRows.find(s => s.key === 'globalStartDate')?.value;
+    const endDate = settingsRows.find(s => s.key === 'globalEndDate')?.value;
+    const period = (startDate && endDate) ? `${startDate.replace(/-/g, '')}-${endDate.replace(/-/g, '')}` : 'Cuatrimestre';
+    const safeGroupName = groupName.replace(/\s+/g, '_');
+
     const { filePath } = await dialog.showSaveDialog({
         title: 'Exportar Tabla Completa de Asistencia a PDF',
-        defaultPath: `asistencia-completa-${groupName.replace(/\s+/g, '_')}.pdf`,
+        defaultPath: `${safeGroupName}-${period}.pdf`,
         filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
     });
 
@@ -459,81 +466,119 @@ ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, s
     }
 
     try {
-        // 1. Leer la plantilla HTML
-        const templatePath = path.join(__dirname, 'pdf-template.html');
-        let templateHtml = fs.readFileSync(templatePath, 'utf8');
+        // --- CÁLCULO DE PORCENTAJES ---
+        const partial1EndDate = settingsRows.find(s => s.key === 'globalPartial1EndDate')?.value;
+        const p1End = partial1EndDate ? new Date(partial1EndDate + 'T23:59:59') : null;
 
-        // 2. Generar la tabla HTML completa
-        let tableHead = '<thead><tr><th class="student-name-cell">Alumno</th>';
-        dates.forEach(date => {
-            const [year, month, day] = date.split('-');
-            tableHead += `<th>${day}/${month}</th>`;
+        const monthlyTotals = {}; // { '2023-10': { attended: 0, total: 0 }, ... }
+        let p1Attended = 0, p1Total = 0, p2Attended = 0, p2Total = 0;
+
+        students.forEach(student => {
+            dates.forEach(dateStr => {
+                const date = new Date(dateStr + 'T12:00:00');
+                const monthKey = date.toISOString().slice(0, 7); // 'YYYY-MM'
+
+                if (!monthlyTotals[monthKey]) monthlyTotals[monthKey] = { attended: 0, total: 0 };
+                monthlyTotals[monthKey].total++;
+
+                const status = student.attendances[dateStr]?.status;
+                const isAttended = status === 'Presente' || status === 'Retardo' || status === 'Justificada';
+                if (isAttended) monthlyTotals[monthKey].attended++;
+
+                if (p1End) {
+                    if (date <= p1End) {
+                        p1Total++;
+                        if (isAttended) p1Attended++;
+                    } else {
+                        p2Total++;
+                        if (isAttended) p2Attended++;
+                    }
+                }
+            });
         });
+
+        const semesterTotal = p1Total + p2Total;
+        const semesterAttended = p1Attended + p2Attended;
+
+        // --- CONSTRUCCIÓN DEL HTML ---
+        const logoLeftPath = path.join(__dirname, 'assets', 'logo-left.svg');
+        const logoRightPath = path.join(__dirname, 'assets', 'logo-right.svg');
+        const logoLeftb64 = `data:image/svg+xml;base64,${fs.readFileSync(logoLeftPath).toString('base64')}`;
+        const logoRightb64 = `data:image/svg+xml;base64,${fs.readFileSync(logoRightPath).toString('base64')}`;
+        const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        let tableHead = '<thead><tr><th class="student-name-cell">Alumno</th>';
+        dates.forEach(date => tableHead += `<th>${date.slice(8, 10)}/${date.slice(5, 7)}</th>`);
         tableHead += '</tr></thead>';
 
         let tableBody = '<tbody>';
         students.forEach(student => {
             tableBody += `<tr><td class="student-name-cell">${student.name}</td>`;
             dates.forEach(date => {
-                const attendance = student.attendances[date] || { status: '' };
-                let statusChar = '';
-                let statusClass = 'status-pendiente'; // Default class
-                switch (attendance.status) {
-                    case 'Presente': statusChar = 'P'; statusClass = 'status-presente'; break;
-                    case 'Ausente': statusChar = 'A'; statusClass = 'status-ausente'; break;
-                    case 'Retardo': statusChar = 'R'; statusClass = 'status-retardo'; break;
-                    case 'Justificada': statusChar = 'J'; statusClass = 'status-justificada'; break;
-                    case 'Intercambio': statusChar = 'I'; statusClass = 'status-intercambio'; break;
-                }
-                tableBody += `<td class="${statusClass}">${statusChar}</td>`;
+                const status = student.attendances[date]?.status;
+                let char = '', cssClass = 'status-pendiente';
+                if (status === 'Presente') { char = 'P'; cssClass = 'status-presente'; }
+                else if (status === 'Ausente') { char = 'A'; cssClass = 'status-ausente'; }
+                else if (status === 'Retardo') { char = 'R'; cssClass = 'status-retardo'; }
+                else if (status === 'Justificada') { char = 'J'; cssClass = 'status-justificada'; }
+                else if (status === 'Intercambio') { char = 'I'; cssClass = 'status-intercambio'; }
+                tableBody += `<td class="${cssClass}">${char}</td>`;
             });
             tableBody += '</tr>';
         });
         tableBody += '</tbody>';
 
-        const fullTableHtml = `<table>${tableHead}${tableBody}</table>`;
-
-        // 3. Inyectar datos en la plantilla
-        const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-        const logoLeftPath = path.join(__dirname, 'assets', 'logo-left.svg');
-        const logoRightPath = path.join(__dirname, 'assets', 'logo-right.svg');
-
-        const logoLeftb64 = fs.readFileSync(logoLeftPath).toString('base64');
-        const logoRightb64 = fs.readFileSync(logoRightPath).toString('base64');
-
-        const logoLeftSrc = `data:image/svg+xml;base64,${logoLeftb64}`;
-        const logoRightSrc = `data:image/svg+xml;base64,${logoRightb64}`;
-
-        templateHtml = templateHtml
-            .replace('{{report_title}}', `Reporte de Asistencia - ${groupName}`)
-            .replace('{{logo_left}}', logoLeftSrc)
-            .replace('{{logo_right}}', logoRightSrc)
-            .replace('{{group_name}}', groupName)
-            .replace('{{report_date}}', currentDate)
-            .replace('{{attendance_table}}', fullTableHtml);
-
-        // 4. Crear ventana oculta e imprimir a PDF
-        const pdfWindow = new BrowserWindow({
-            show: false,
-            webPreferences: { contextIsolation: true }
+        let summaryHtml = '<div class="summary-section"><h2>Resumen de Asistencia General</h2>';
+        if (p1Total > 0) summaryHtml += `<p><strong>Primer Parcial:</strong> ${((p1Attended / p1Total) * 100).toFixed(1)}%</p>`;
+        if (p2Total > 0) summaryHtml += `<p><strong>Segundo Parcial:</strong> ${((p2Attended / p2Total) * 100).toFixed(1)}%</p>`;
+        Object.keys(monthlyTotals).sort().forEach(monthKey => {
+            const monthData = monthlyTotals[monthKey];
+            const monthName = new Date(monthKey + '-02').toLocaleDateString('es-ES', { month: 'long' });
+            summaryHtml += `<p><strong>${monthName.charAt(0).toUpperCase() + monthName.slice(1)}:</strong> ${((monthData.attended / monthData.total) * 100).toFixed(1)}%</p>`;
         });
+        summaryHtml += `<p><strong>Total del Cuatrimestre:</strong> ${((semesterAttended / semesterTotal) * 100).toFixed(1)}%</p></div>`;
 
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(templateHtml)}`);
+        const fullHtml = `
+            <!DOCTYPE html>
+            <html lang="es"><head><meta charset="UTF-8"><title>Reporte de Asistencia - ${groupName}</title>
+            <style>
+                body { font-family: system-ui, sans-serif; margin: 40px; font-size: 10px; }
+                header, footer { position: fixed; left: 40px; right: 40px; }
+                header { top: 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+                header img { height: 60px; }
+                .header-center { text-align: center; }
+                .header-center h1 { margin: 0; font-size: 1.5rem; }
+                footer { bottom: 0; text-align: center; font-size: 0.8rem; color: #888; border-top: 1px solid #ddd; padding-top: 5px; }
+                main { margin-top: 100px; margin-bottom: 40px; }
+                table { border-collapse: collapse; width: 100%; font-size: 9px; }
+                th, td { border: 1px solid #ccc; padding: 4px; text-align: center; white-space: nowrap; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+                .student-name-cell { text-align: left !important; font-weight: bold; background-color: #f9f9f9; }
+                .status-presente { color: #22c55e; } .status-ausente { color: #ef4444; } .status-retardo { color: #f97316; }
+                .status-intercambio { color: #6366f1; } .status-justificada { color: #06b6d4; } .status-pendiente { color: #9ca3af; }
+                .summary-section { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; }
+            </style></head>
+            <body>
+                <header>
+                    <img src="${logoLeftb64}" alt="Logo Izquierdo">
+                    <div class="header-center"><h1>Reporte de Asistencia</h1><p>${groupName}</p><p>${currentDate}</p></div>
+                    <img src="${logoRightb64}" alt="Logo Derecho">
+                </header>
+                <footer>Generado por Asistencias IAEV</footer>
+                <main>
+                    <table>${tableHead}${tableBody}</table>
+                    ${summaryHtml}
+                </main>
+            </body></html>`;
 
+        const pdfWindow = new BrowserWindow({ show: false, webPreferences: { contextIsolation: true } });
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(fullHtml)}`);
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        const pdfData = await pdfWindow.webContents.printToPDF({
-            landscape: true,
-            pageSize: 'A3',
-            printBackground: true,
-            margins: { top: 40, bottom: 40, left: 40, right: 40 }
-        });
+        const pdfData = await pdfWindow.webContents.printToPDF({ landscape: true, pageSize: 'A3', printBackground: true, margins: { top: 100, bottom: 60, left: 40, right: 40 } });
 
-        // 5. Guardar el PDF y limpiar
         fs.writeFileSync(filePath, pdfData);
         pdfWindow.close();
-
         return { success: true, path: filePath };
 
     } catch (err) {
