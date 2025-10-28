@@ -401,14 +401,75 @@ async function renderAttendanceGrid(groupId) {
         exportFullAttendanceGridToPdf();
     });
 
-    document.getElementById('export-pdf-btn').addEventListener('click', async () => {
-        if (state.reportData) {
-            const result = await window.api.exportPdf(state.reportData);
+    exportPdfBtn.addEventListener('click', async () => {
+        if (!state.reportData) {
+            showNotification('Primero genera un reporte para poder exportarlo.', 'error');
+            return;
+        }
+
+        const groupName = document.getElementById('report-group-select').options[document.getElementById('report-group-select').selectedIndex].text;
+        const periodo = document.getElementById('report-period-select').value;
+        const chartImageBase64 = attendanceChart ? attendanceChart.toBase64Image() : null;
+        const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+        // Logos en Base64 (SVG placeholders)
+        const logoLeftBase64 = 'data:image/svg+xml;base64,' + btoa('<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#e0e0e0" /><text x="50" y="55" font-family="Arial" font-size="12" text-anchor="middle" fill="#888">Logo 1</text></svg>');
+        const logoRightBase64 = 'data:image/svg+xml;base64,' + btoa('<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#e0e0e0" /><text x="50" y="55" font-family="Arial" font-size="12" text-anchor="middle" fill="#888">Logo 2</text></svg>');
+
+        let tableHtml = '<table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asistencias</th><th>Retardos</th><th>Faltas</th><th>% Asistencia</th></tr></thead><tbody>';
+        state.reportData.forEach(row => {
+            const lowAttendanceClass = parseFloat(row.percentage) < 80.0 ? 'class="low-attendance"' : '';
+            tableHtml += `<tr ${lowAttendanceClass}><td>${row.studentId || ''}</td><td>${row.studentName}</td><td>${row.presente}</td><td>${row.retardo}</td><td>${row.ausente}</td><td>${row.percentage}%</td></tr>`;
+        });
+        tableHtml += '</tbody></table>';
+
+        const chartHtml = chartImageBase64 ? `<div class="chart-container"><h2>Resumen Gráfico</h2><img src="${chartImageBase64}"></div>` : '';
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <style>
+                    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; font-size: 12px; }
+                    .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid #ccc; }
+                    .header img { height: 50px; }
+                    h1 { font-size: 1.5em; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                    th { background-color: #f2f2f2; }
+                    .low-attendance { background-color: #fffbeb; }
+                    .chart-container { text-align: center; margin-top: 20px; }
+                    .chart-container img { max-width: 80%; height: auto; }
+                    .footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 0.8em; color: #777; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <img src="${logoLeftBase64}">
+                    <h1>Reporte - ${groupName} (${periodo})</h1>
+                    <img src="${logoRightBase64}">
+                </div>
+                ${tableHtml}
+                ${chartHtml}
+                <div class="footer">Generado el ${currentDate} por Asistencias IAEV.</div>
+            </body>
+            </html>
+        `;
+
+        const defaultFilename = `Reporte_${groupName.replace(/ /g, '_')}_${periodo}.pdf`;
+        try {
+            const result = await window.api.exportFormattedPdf({
+                htmlContent: htmlContent,
+                defaultFilename: defaultFilename
+            });
             if (result.success) {
-                showNotification('Reporte PDF exportado con éxito.');
+                showNotification('Reporte PDF formateado exportado con éxito.');
             } else if (!result.cancelled) {
-                showNotification(`Error al exportar a PDF: ${result.error}`, 'error');
+                showNotification(`Error al exportar PDF: ${result.error}`, 'error');
             }
+        } catch(e) {
+            showNotification(`Error al llamar a la exportación: ${e.message}`, 'error');
         }
     });
 

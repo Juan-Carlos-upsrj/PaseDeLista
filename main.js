@@ -379,72 +379,44 @@ ipcMain.handle('export-csv', async (event, data) => {
     return { success: false, cancelled: true };
 });
 
-ipcMain.handle('export-pdf', async (event, data) => {
+
+ipcMain.handle('export-formatted-pdf', async (event, { htmlContent, defaultFilename }) => {
     const { filePath } = await dialog.showSaveDialog({
-        title: 'Exportar a PDF',
-        defaultPath: `reporte-asistencia.pdf`,
+        title: 'Exportar Reporte Formateado a PDF',
+        defaultPath: defaultFilename,
         filters: [{ name: 'PDF Files', extensions: ['pdf'] }]
     });
 
-    if (filePath) {
-        let tableHTML = `
-            <style>
-                body { font-family: sans-serif; }
-                table { width: 100%; border-collapse: collapse; }
-                th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-                thead { background-color: #f2f2f2; }
-                .low-attendance { background-color: #fffbeb; }
-            </style>
-            <h1>Reporte de Asistencia</h1>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Matrícula</th>
-                        <th>Alumno</th>
-                        <th>Asistencias</th>
-                        <th>Retardos</th>
-                        <th>Faltas</th>
-                        <th>% Asistencia</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-        data.forEach(row => {
-            const lowAttendanceClass = parseFloat(row.percentage) <= 80.0 ? 'class="low-attendance"' : '';
-            tableHTML += `
-                <tr ${lowAttendanceClass}>
-                    <td>${row.studentId || ''}</td>
-                    <td>${row.studentName}</td>
-                    <td>${row.presente}</td>
-                    <td>${row.retardo}</td>
-                    <td>${row.ausente}</td>
-                    <td>${row.percentage}%</td>
-                </tr>
-            `;
-        });
-        tableHTML += '</tbody></table>';
-
-        const pdfWindow = new BrowserWindow({ show: false });
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(tableHTML)}`);
-
-        try {
-            const pdfData = await pdfWindow.webContents.printToPDF({
-                marginsType: 0,
-                pageSize: 'A4',
-                printBackground: true,
-                printSelectionOnly: false,
-                landscape: false
-            });
-            fs.writeFileSync(filePath, pdfData);
-            pdfWindow.close();
-            return { success: true, path: filePath };
-        } catch(err) {
-            console.error("Error generando PDF:", err);
-            pdfWindow.close();
-            return { success: false, error: err.message };
-        }
+    if (!filePath) {
+        return { success: false, cancelled: true };
     }
-    return { success: false, cancelled: true };
+
+    const pdfWindow = new BrowserWindow({
+        show: false,
+        webPreferences: { }
+    });
+
+    try {
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const pdfData = await pdfWindow.webContents.printToPDF({
+            printBackground: true,
+            pageSize: 'Letter',
+            margins: { top: 20, bottom: 20, left: 20, right: 20 }
+        });
+
+        fs.writeFileSync(filePath, pdfData);
+        pdfWindow.close();
+        return { success: true, path: filePath };
+
+    } catch (err) {
+        console.error("Error generando PDF formateado:", err);
+        if (pdfWindow && !pdfWindow.isDestroyed()) {
+            pdfWindow.close();
+        }
+        return { success: false, error: err.message };
+    }
 });
 
 ipcMain.handle('export-full-attendance-pdf', async (event, { groupName, dates, students }) => {
