@@ -2,6 +2,10 @@
 // Este archivo maneja toda la lógica del lado del cliente (interfaz de usuario).
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Verificar que Chart.js esté disponible
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js no está cargado. Los gráficos no funcionarán.');
+    }
     // --- ESTADO GLOBAL DE LA APLICACIÓN ---
     const state = {
         currentView: 'inicio',
@@ -534,12 +538,19 @@ async function renderAttendanceGrid(groupId) {
         tableHTML += '</tbody></table>';
 
         // 2. Obtener la imagen del gráfico
-        const chartImage = reportChart ? reportChart.toBase64Image() : '';
-        const chartHtml = chartImage ? `
+        let chartHtml = '';
+        if (reportChart && typeof reportChart.toBase64Image === 'function') {
+            try {
+                const chartImage = reportChart.toBase64Image();
+                chartHtml = `
             <div class="chart-container">
                 <h3>Resumen Gráfico</h3>
-                <img src="${chartImage}" alt="Gráfico de Asistencia">
-            </div>` : '';
+                <img src="${chartImage}" alt="Gráfico de Asistencia" style="max-width: 100%; height: auto;">
+            </div>`;
+            } catch (err) {
+                console.error('Error al convertir gráfico a imagen:', err);
+            }
+        }
 
         // 3. Construir el HTML completo con estilos y gráfico
         const htmlContent = `
@@ -691,53 +702,57 @@ async function renderAttendanceGrid(groupId) {
         exportCsvBtn.disabled = false;
         exportPdfBtn.disabled = false;
 
-        // --- Render Chart ---
-        if (reportChart) {
-            reportChart.destroy();
-        }
-
-        const ctx = document.getElementById('report-chart').getContext('2d');
-        const totals = reportResults.reduce((acc, curr) => {
-            acc.presente += curr.presente;
-            acc.retardo += curr.retardo;
-            acc.ausente += curr.ausente;
-            return acc;
-        }, { presente: 0, retardo: 0, ausente: 0 });
-
-        reportChart = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: ['Presente', 'Retardo', 'Ausente'],
-                datasets: [{
-                    label: 'Total de Asistencias del Grupo',
-                    data: [totals.presente, totals.retardo, totals.ausente],
-                    backgroundColor: [
-                        'rgba(75, 192, 192, 0.6)',
-                        'rgba(255, 206, 86, 0.6)',
-                        'rgba(255, 99, 132, 0.6)'
-                    ],
-                    borderColor: [
-                        'rgba(75, 192, 192, 1)',
-                        'rgba(255, 206, 86, 1)',
-                        'rgba(255, 99, 132, 1)'
-                    ],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                animation: false, // Important for generating a static image
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0 // Ensure y-axis has whole numbers
-                        }
-                    }
-                },
-                responsive: true,
-                maintainAspectRatio: false
+        // --- Render Chart con validación ---
+        if (typeof Chart !== 'undefined') {
+            if (reportChart) {
+                reportChart.destroy();
             }
-        });
+
+            const ctx = document.getElementById('report-chart').getContext('2d');
+            const totals = reportResults.reduce((acc, curr) => {
+                acc.presente += curr.presente;
+                acc.retardo += curr.retardo;
+                acc.ausente += curr.ausente;
+                return acc;
+            }, { presente: 0, retardo: 0, ausente: 0 });
+
+            reportChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Presente', 'Retardo', 'Ausente'],
+                    datasets: [{
+                        label: 'Total de Asistencias del Grupo',
+                        data: [totals.presente, totals.retardo, totals.ausente],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.6)',
+                            'rgba(255, 206, 86, 0.6)',
+                            'rgba(255, 99, 132, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(255, 206, 86, 1)',
+                            'rgba(255, 99, 132, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    animation: false, // Important for generating a static image
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0 // Ensure y-axis has whole numbers
+                            }
+                        }
+                    },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        } else {
+            console.warn('Chart.js no disponible, el gráfico no se mostrará');
+        }
     }
 
     // --- LÓGICA DE CONFIGURACIÓN ---

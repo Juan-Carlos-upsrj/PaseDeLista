@@ -303,36 +303,51 @@ ipcMain.handle('export-formatted-pdf', async (event, { htmlContent, defaultFilen
     const pdfWindow = new BrowserWindow({
         show: false,
         webPreferences: {
-            // Es una buena práctica deshabilitar nodeIntegration y habilitar contextIsolation
-            // para ventanas que cargan contenido externo o dinámico por seguridad.
             nodeIntegration: false,
             contextIsolation: true
         }
     });
 
     try {
-        // Cargar el HTML como una URL de datos.
-        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`);
+        let processedHtml = htmlContent;
+        const fileRegex = /file:\/\/([^"']+)/g;
+        const matches = [...htmlContent.matchAll(fileRegex)];
 
-        // Esperar un breve momento para asegurar que todo el contenido (imágenes, etc.) se renderice
-        await new Promise(resolve => setTimeout(resolve, 500));
+        for (const match of matches) {
+            const filePath = match[1];
+            try {
+                if (fs.existsSync(filePath)) {
+                    const imageBuffer = fs.readFileSync(filePath);
+                    const base64Image = imageBuffer.toString('base64');
+                    const ext = path.extname(filePath).toLowerCase().substring(1);
+                    const mimeType = ext === 'png' ? 'image/png' :
+                                   ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+                                   'image/png';
+                    const dataUrl = `data:${mimeType};base64,${base64Image}`;
+                    processedHtml = processedHtml.replace(match[0], dataUrl);
+                }
+            } catch (err) {
+                console.error('Error procesando imagen:', err);
+            }
+        }
+
+        await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(processedHtml)}`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const pdfData = await pdfWindow.webContents.printToPDF({
             printBackground: true,
             pageSize: 'Letter',
-            landscape: true, // A menudo mejor para tablas anchas de asistencia
+            landscape: true,
             margins: { top: 15, bottom: 15, left: 15, right: 15 }
         });
 
         fs.writeFileSync(filePath, pdfData);
-
         return { success: true, path: filePath };
 
     } catch (err) {
         console.error("Error generando PDF formateado:", err);
         return { success: false, error: err.message };
     } finally {
-        // Asegurarse de que la ventana siempre se cierre
         if (pdfWindow && !pdfWindow.isDestroyed()) {
             pdfWindow.close();
         }
