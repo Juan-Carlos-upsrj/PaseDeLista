@@ -360,47 +360,10 @@ body {
 }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
-#alumnos.tab-content.active {
-    display: flex;
-    flex-direction: column;
-    height: 100%; /* Ocupa todo el alto del contenedor padre */
-}
-
-.students-table-container {
-    flex-grow: 1; /* Permite que este contenedor crezca y ocupe el espacio disponible */
-    overflow-y: auto; /* Muestra el scrollbar vertical solo cuando sea necesario */
-    border-bottom: 1px solid var(--border-color);
-}
 
 
 /* Tablas */
 .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem; }
-
-.report-content-area {
-    display: flex;
-    gap: 1.5rem;
-    margin-top: 1.5rem;
-    /* Calcula la altura para llenar el espacio, restando la altura de la barra de herramientas y los márgenes */
-    height: calc(100vh - 15rem);
-}
-
-#report-results-container {
-    flex-basis: 60%;
-    flex-grow: 1;
-}
-
-#report-chart-container {
-    flex-basis: 40%;
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 1.5rem;
-    background-color: var(--card-bg);
-    border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
 .data-table { table-layout: fixed; width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td {
     padding: 0.75rem;
@@ -517,13 +480,8 @@ body {
 }
 
 /* Resaltado del día actual */
-#attendance-table th.today-col, #attendance-table td.today-col {
+.today-col {
     background-color: var(--highlight-bg) !important;
-    border-left: 2px solid var(--primary-color);
-    border-right: 2px solid var(--primary-color);
-}
-#attendance-table thead th.today-col {
-    border-top: 2px solid var(--primary-color);
 }
 
 /* Colores para los estados de asistencia */

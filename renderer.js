@@ -157,80 +157,29 @@ document.addEventListener('DOMContentLoaded', () => {
             row.innerHTML = `
                 <td class="matricula-col">${student.student_id || ''}</td>
                 <td>${student.student_name}</td>
-                <td><button class="btn btn-secondary btn-sm edit-student-btn" data-student-id="${student.id}">Editar</button></td>
+                <td><a href="#" class="action-link" data-student-id="${student.id}">Eliminar</a></td>
             `;
         });
         applyMatriculaVisibility();
     }
 
     studentsTableBody.addEventListener('click', async (e) => {
-        if (e.target.classList.contains('edit-student-btn')) {
+        if(e.target.classList.contains('action-link')) {
             const studentId = e.target.dataset.studentId;
-            openEditStudentModal(studentId);
-        }
-    });
-
-    // --- LÓGICA DEL MODAL DE EDICIÓN DE ALUMNOS ---
-    const editStudentModal = document.getElementById('edit-student-modal');
-    const editStudentForm = document.getElementById('edit-student-form');
-    const deleteStudentFromModalBtn = document.getElementById('delete-student-from-modal-btn');
-
-    async function openEditStudentModal(studentId) {
-        const student = await window.api.getStudentById(studentId);
-        if (!student) {
-            showNotification('No se pudo encontrar al alumno.', 'error');
-            return;
-        }
-
-        // Rellenar el formulario con los datos del alumno
-        document.getElementById('edit-student-id-input').value = student.id;
-        document.getElementById('edit-student-matricula-input').value = student.student_id || '';
-        document.getElementById('edit-student-name-input').value = student.student_name;
-
-        editStudentModal.classList.remove('hidden');
-    }
-
-    // Guardar cambios del alumno
-    editStudentForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const studentData = {
-            id: document.getElementById('edit-student-id-input').value,
-            studentId: document.getElementById('edit-student-matricula-input').value,
-            name: document.getElementById('edit-student-name-input').value
-        };
-
-        try {
-            await window.api.updateStudent(studentData);
-            showNotification('Alumno actualizado con éxito.');
-            editStudentModal.classList.add('hidden');
-            loadStudents(state.selectedGroupId); // Recargar la lista de alumnos
-        } catch (error) {
-            showNotification(`Error al actualizar alumno: ${error.message}`, 'error');
-        }
-    });
-
-    // Eliminar alumno desde el modal
-    deleteStudentFromModalBtn.addEventListener('click', async () => {
-        const studentId = document.getElementById('edit-student-id-input').value;
-        if (confirm('¿Estás seguro de que quieres eliminar a este alumno? Esta acción no se puede deshacer.')) {
-            try {
-                await window.api.deleteStudent(studentId);
-                showNotification('Alumno eliminado correctamente.');
-                editStudentModal.classList.add('hidden');
-                loadStudents(state.selectedGroupId);
-            } catch (error) {
-                showNotification(`Error al eliminar alumno: ${error.message}`, 'error');
+            if (confirm('¿Seguro que quieres eliminar a este alumno?')) {
+                try {
+                    await window.api.deleteStudent(studentId);
+                    showNotification('Alumno eliminado correctamente.');
+                    loadStudents(state.selectedGroupId);
+                } catch (error) {
+                    showNotification(`Error al eliminar alumno: ${error.message}`, 'error');
+                }
             }
         }
     });
 
-    // Cancelar la edición
-    document.getElementById('cancel-edit-student-btn').addEventListener('click', () => {
-        editStudentModal.classList.add('hidden');
-    });
-
     // --- LÓGICA DE ASISTENCIA (TABLA ESTÁNDAR) ---
-    const statusIconMap = { 'Presente': 'P', 'Ausente': 'A', 'Retardo': 'R', 'Intercambio': 'I', 'Justificada': 'J', 'Pendiente': '—' };
+    const statusIconMap = { 'Presente': 'P', 'Ausente': 'A', 'Retardo': 'R', 'Intercambio': 'I', 'Pendiente': '—' };
 
     attendanceGroupSelect.addEventListener('change', () => {
         const groupId = parseInt(attendanceGroupSelect.value);
@@ -240,6 +189,112 @@ document.addEventListener('DOMContentLoaded', () => {
             attendanceGridContainer.innerHTML = '';
         }
     });
+
+function generateAttendanceGridHTML(group, students, attendanceData, settings, options = {}) {
+    const { includeSummaryColumns = false, forPDF = false } = options;
+    const { globalStartDate, globalEndDate, globalPartial1EndDate } = settings;
+
+    const classDays = group.class_days.split(',').map(Number);
+    const partial1End = new Date(globalPartial1EndDate + 'T00:00:00');
+    const allClassDates = [];
+
+    for (let d = new Date(globalStartDate + 'T00:00:00'); d <= new Date(globalEndDate + 'T00:00:00'); d.setDate(d.getDate() + 1)) {
+        if (classDays.includes(d.getDay())) {
+            allClassDates.push(new Date(d));
+        }
+    }
+
+    const attendanceMap = new Map();
+    attendanceData.forEach(att => attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status));
+
+    const todayString = new Date().toISOString().split('T')[0];
+    let tableHTML = `<table class="${forPDF ? 'attendance-table' : 'data-table'}" ${forPDF ? '' : 'id="attendance-table"'}>`;
+
+    // --- ENCABEZADO ---
+    const monthColspans = {};
+    const partialColspans = {};
+    allClassDates.forEach(date => {
+        const monthName = date.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
+        const partialName = date <= partial1End ? "Primer Parcial" : "Segundo Parcial";
+        monthColspans[monthName] = (monthColspans[monthName] || 0) + 1;
+        partialColspans[`${monthName}-${partialName}`] = (partialColspans[`${monthName}-${partialName}`] || 0) + 1;
+    });
+
+    let monthRow = `<thead><th class="student-name-cell" rowspan="3">Alumno</th>`;
+    let partialRow = `<tr>`;
+    let dateRow = `<tr>`;
+
+    const addedMonths = new Set();
+    let colorIndex = 1;
+    allClassDates.forEach(date => {
+        const monthName = date.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
+        if (!addedMonths.has(monthName)) {
+            monthRow += `<th colspan="${monthColspans[monthName]}" class="month-header ${forPDF ? '' : `month-bg-${colorIndex}`}">${monthName}</th>`;
+            addedMonths.add(monthName);
+            colorIndex = colorIndex === 1 ? 2 : 1;
+        }
+    });
+    if (includeSummaryColumns) {
+        monthRow += `<th class="summary-cell" colspan="4">Resumen</th>`;
+    }
+    monthRow += `</tr>`;
+
+    const addedPartials = new Set();
+    allClassDates.forEach(date => {
+        const monthName = date.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
+        const partialName = date <= partial1End ? "Primer Parcial" : "Segundo Parcial";
+        if (!addedPartials.has(`${monthName}-${partialName}`)) {
+            partialRow += `<th colspan="${partialColspans[`${monthName}-${partialName}`]}" class="partial-header">${partialName}</th>`;
+            addedPartials.add(`${monthName}-${partialName}`);
+        }
+    });
+    if (includeSummaryColumns) {
+        partialRow += `<th class="summary-cell" rowspan="2">Asist.</th><th class="summary-cell" rowspan="2">Ret.</th><th class="summary-cell" rowspan="2">Faltas</th><th class="summary-cell" rowspan="2">% Asist.</th>`;
+    }
+    partialRow += `</tr>`;
+
+    allClassDates.forEach(date => {
+        const isToday = !forPDF && date.toISOString().split('T')[0] === todayString;
+        const dateHeaderClass = forPDF ? 'date-header' : `date-header ${isToday ? 'today-col' : ''}`;
+        dateRow += `<th class="${dateHeaderClass}">${forPDF ? date.toLocaleDateString('es-MX', { day: '2-digit' }) : date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</th>`;
+    });
+    dateRow += `</tr></thead>`;
+
+    tableHTML += monthRow + partialRow + dateRow;
+
+    // --- CUERPO ---
+    tableHTML += '<tbody>';
+    students.forEach(student => {
+        let presente = 0, ausente = 0, retardo = 0;
+        tableHTML += `<tr><td class="student-name-cell">${student.student_name}</td>`;
+        allClassDates.forEach(date => {
+            const dateString = date.toISOString().split('T')[0];
+            const status = attendanceMap.get(`${student.id}-${dateString}`) || 'Pendiente';
+
+            if (status === 'Presente') presente++;
+            else if (status === 'Retardo') retardo++;
+            else if (status === 'Ausente' || (includeSummaryColumns && status === 'Pendiente')) ausente++;
+
+            if (forPDF) {
+                 tableHTML += `<td class="status-cell">${statusIconMap[status]}</td>`;
+            } else {
+                const isToday = dateString === todayString;
+                tableHTML += `<td class="status-cell status-${status.toLowerCase()} ${isToday ? 'today-col' : ''}" data-student-id="${student.id}" data-date="${dateString}" data-status="${status}">${statusIconMap[status]}</td>`;
+            }
+        });
+
+        if (includeSummaryColumns) {
+            const totalClasses = allClassDates.length;
+            const percentage = totalClasses > 0 ? ((presente + retardo) / totalClasses) * 100 : 0;
+            tableHTML += `<td class="summary-cell">${presente}</td><td class="summary-cell">${retardo}</td><td class="summary-cell">${ausente}</td><td class="summary-cell">${percentage.toFixed(1)}%</td>`;
+        }
+        tableHTML += `</tr>`;
+    });
+    tableHTML += '</tbody></table>';
+
+    return tableHTML;
+}
+
 
 async function renderAttendanceGrid(groupId) {
     attendanceGridContainer.innerHTML = '<p class="p-4">Cargando...</p>';
@@ -261,215 +316,91 @@ async function renderAttendanceGrid(groupId) {
         return;
     }
 
-    // 1. Agrupar fechas por Mes y Parcial
-    const classDays = group.class_days.split(',').map(Number);
-    const partial1End = new Date(globalPartial1EndDate + 'T00:00:00');
-    const headerStructure = {}; // Estructura: { "OCTUBRE": { "Primer Parcial": [date, date], ... }, ... }
-    const allClassDates = []; // Guardar todas las fechas en orden
-
-    for (let d = new Date(globalStartDate + 'T00:00:00'); d <= new Date(globalEndDate + 'T00:00:00'); d.setDate(d.getDate() + 1)) {
-        if (classDays.includes(d.getDay())) {
-            const currentDate = new Date(d);
-            allClassDates.push(currentDate); // Añadir a la lista ordenada
-
-            const monthName = currentDate.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
-            const partialName = currentDate <= partial1End ? "Primer Parcial" : "Segundo Parcial";
-
-            if (!headerStructure[monthName]) headerStructure[monthName] = {};
-            if (!headerStructure[monthName][partialName]) headerStructure[monthName][partialName] = [];
-
-            headerStructure[monthName][partialName].push(currentDate);
-        }
-    }
-
-    const attendanceMap = new Map();
-    attendanceData.forEach(att => attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status));
-
-    const todayString = new Date().toISOString().split('T')[0];
-    let tableHTML = `<table id="attendance-table"><thead>`;
-
-    // 2. Renderizar Encabezado de 3 Filas (Sticky)
-    let monthRow = `<th rowspan="3" class="student-name-cell">Alumno</th>`;
-    let partialRow = '';
-    let dateRow = '';
-    let colorIndex = 1;
-
-    // Usar allClassDates para asegurar el orden correcto al calcular colspan
-    const monthColspans = {}; // { "OCTUBRE": 4, "NOVIEMBRE": 5 }
-    const partialColspans = {}; // { "OCTUBRE-Primer Parcial": 4, "NOVIEMBRE-Primer Parcial": 2, ... }
-
-    allClassDates.forEach(date => {
-        const monthName = date.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
-        const partialName = date <= partial1End ? "Primer Parcial" : "Segundo Parcial";
-        const monthKey = monthName;
-        const partialKey = `${monthName}-${partialName}`;
-
-        monthColspans[monthKey] = (monthColspans[monthKey] || 0) + 1;
-        partialColspans[partialKey] = (partialColspans[partialKey] || 0) + 1;
-    });
-
-    // Fila 1: Meses
-    const addedMonths = new Set();
-    allClassDates.forEach(date => {
-        const monthName = date.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
-        if (!addedMonths.has(monthName)) {
-            monthRow += `<th colspan="${monthColspans[monthName]}" class="month-header month-bg-${colorIndex}">${monthName}</th>`;
-            addedMonths.add(monthName);
-            colorIndex = colorIndex === 1 ? 2 : 1;
-        }
-    });
-
-    // Fila 2: Parciales
-    const addedPartials = new Set();
-     allClassDates.forEach(date => {
-        const monthName = date.toLocaleDateString('es-MX', { month: 'long' }).toUpperCase();
-        const partialName = date <= partial1End ? "Primer Parcial" : "Segundo Parcial";
-        const partialKey = `${monthName}-${partialName}`;
-         if (!addedPartials.has(partialKey)) {
-             partialRow += `<th colspan="${partialColspans[partialKey]}" class="partial-header">${partialName}</th>`;
-             addedPartials.add(partialKey);
-         }
-    });
-
-    // Fila 3: Fechas
-    allClassDates.forEach(date => {
-        const isToday = date.toISOString().split('T')[0] === todayString;
-        dateRow += `<th class="date-header ${isToday ? 'today-col' : ''}">${date.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}</th>`;
-    });
-
-    tableHTML += `<tr>${monthRow}</tr>`;
-    tableHTML += `<tr>${partialRow}</tr>`;
-    tableHTML += `<tr>${dateRow}</tr>`;
-    tableHTML += '</thead>';
-
-    // 3. Renderizar Cuerpo de la Tabla (sin resumen)
-    tableHTML += '<tbody>';
-    students.forEach(student => {
-        tableHTML += `<tr><td class="student-name-cell">${student.student_name}</td>`;
-        // Iterar sobre allClassDates asegura el orden correcto de las celdas
-        allClassDates.forEach(date => {
-            const dateString = date.toISOString().split('T')[0];
-            const status = attendanceMap.get(`${student.id}-${dateString}`) || 'Pendiente';
-            const isToday = dateString === todayString;
-            // Asegúrate de que statusIconMap esté definido globalmente o pasado a la función
-            tableHTML += `<td class="status-cell status-${status.toLowerCase()} ${isToday ? 'today-col' : ''}" data-student-id="${student.id}" data-date="${dateString}" data-status="${status}">${statusIconMap[status]}</td>`;
-        });
-        tableHTML += `</tr>`;
-    });
-    tableHTML += '</tbody></table>';
-
+    const tableHTML = generateAttendanceGridHTML(group, students, attendanceData, state.settings, { includeSummaryColumns: false, forPDF: false });
     attendanceGridContainer.innerHTML = tableHTML;
-
-    // Desplazamiento automático a la columna de hoy
-    const todayHeader = attendanceGridContainer.querySelector('#attendance-table .today-col');
-    if (todayHeader) {
-        todayHeader.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center'
-        });
-    }
 }
 
     attendanceGridContainer.addEventListener('click', (e) => {
         if (e.target.classList.contains('status-cell')) {
             const cell = e.target;
-            const studentId = cell.dataset.studentId;
-            const date = cell.dataset.date;
             const currentStatus = cell.dataset.status;
             let newStatus;
 
-            // Define el ciclo de estados de asistencia.
-            const statusRotation = ['Pendiente', 'Presente', 'Retardo', 'Ausente', 'Justificada', 'Intercambio'];
-            const currentIndex = statusRotation.indexOf(currentStatus);
-            newStatus = statusRotation[(currentIndex + 1) % statusRotation.length];
+            if (currentStatus === 'Pendiente') newStatus = 'Presente';
+            else if (currentStatus === 'Presente') newStatus = 'Retardo';
+            else if (currentStatus === 'Retardo') newStatus = 'Ausente';
+            else if (currentStatus === 'Ausente') newStatus = 'Intercambio';
+            else newStatus = 'Pendiente';
 
             cell.dataset.status = newStatus;
-            cell.className = `status-cell status-${newStatus.toLowerCase()}`; // Asegúrate que el CSS maneje 'justificada'
+            cell.className = `status-cell status-${newStatus.toLowerCase()}`;
             cell.textContent = statusIconMap[newStatus];
 
-            // Si el nuevo estado es 'Pendiente', elimina el registro.
-            if (newStatus === 'Pendiente') {
-                window.api.deleteAttendance({ studentId, date });
-            } else {
-                window.api.setAttendance({ studentId, date, status: newStatus });
-            }
+            window.api.setAttendance({
+                studentId: cell.dataset.studentId,
+                date: cell.dataset.date,
+                status: newStatus
+            });
         }
     });
 
-    document.getElementById('export-grid-pdf-btn').addEventListener('click', () => {
-        exportFullAttendanceGridToPdf();
-    });
-
-    exportPdfBtn.addEventListener('click', async () => {
-        if (!state.reportData) {
-            showNotification('Primero genera un reporte para poder exportarlo.', 'error');
+    document.getElementById('export-full-attendance-pdf-btn').addEventListener('click', async () => {
+        const groupId = parseInt(attendanceGroupSelect.value);
+        if (!groupId) {
+            showNotification('Por favor, selecciona un grupo para exportar.', 'error');
             return;
         }
 
-        const groupName = document.getElementById('report-group-select').options[document.getElementById('report-group-select').selectedIndex].text;
-        const periodo = document.getElementById('report-period-select').value;
-        const chartImageBase64 = attendanceChart ? attendanceChart.toBase64Image() : null;
-        const currentDate = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        showNotification('Generando PDF, por favor espera...');
 
-        // Logos en Base64 (SVG placeholders)
-        const logoLeftBase64 = 'data:image/svg+xml;base64,' + btoa('<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#e0e0e0" /><text x="50" y="55" font-family="Arial" font-size="12" text-anchor="middle" fill="#888">Logo 1</text></svg>');
-        const logoRightBase64 = 'data:image/svg+xml;base64,' + btoa('<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" fill="#e0e0e0" /><text x="50" y="55" font-family="Arial" font-size="12" text-anchor="middle" fill="#888">Logo 2</text></svg>');
+        // 1. Obtener todos los datos necesarios
+        const group = await window.api.getGroupById(groupId);
+        const students = await window.api.getStudents(groupId);
+        const attendanceData = await window.api.getAttendance(groupId);
+        const { globalStartDate, globalEndDate, globalPartial1EndDate } = state.settings;
 
-        let tableHtml = '<table><thead><tr><th>Matrícula</th><th>Alumno</th><th>Asistencias</th><th>Retardos</th><th>Faltas</th><th>% Asistencia</th></tr></thead><tbody>';
-        state.reportData.forEach(row => {
-            const lowAttendanceClass = parseFloat(row.percentage) < 80.0 ? 'class="low-attendance"' : '';
-            tableHtml += `<tr ${lowAttendanceClass}><td>${row.studentId || ''}</td><td>${row.studentName}</td><td>${row.presente}</td><td>${row.retardo}</td><td>${row.ausente}</td><td>${row.percentage}%</td></tr>`;
-        });
-        tableHtml += '</tbody></table>';
+        // 2. Construir la tabla HTML usando la función refactorizada
+        const tableHTML = generateAttendanceGridHTML(group, students, attendanceData, state.settings, { includeSummaryColumns: true, forPDF: true });
 
-        const chartHtml = chartImageBase64 ? `<div class="chart-container"><h2>Resumen Gráfico</h2><img src="${chartImageBase64}"></div>` : '';
-
+        // 3. Construir el HTML completo
         const htmlContent = `
             <!DOCTYPE html>
-            <html lang="es">
+            <html>
             <head>
                 <meta charset="UTF-8">
+                <title>Reporte Completo de Asistencia</title>
                 <style>
-                    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; font-size: 12px; }
-                    .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; border-bottom: 1px solid #ccc; }
-                    .header img { height: 50px; }
-                    h1 { font-size: 1.5em; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background-color: #f2f2f2; }
-                    .low-attendance { background-color: #fffbeb; }
-                    .chart-container { text-align: center; margin-top: 20px; }
-                    .chart-container img { max-width: 80%; height: auto; }
-                    .footer { text-align: center; margin-top: 20px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 0.8em; color: #777; }
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 15px; font-size: 8px; }
+                    .header { text-align: center; margin-bottom: 20px; }
+                    .header h1 { margin: 0; font-size: 16px; }
+                    .header p { margin: 2px 0; font-size: 10px; }
+                    .attendance-table { width: 100%; border-collapse: collapse; font-size: 8px; }
+                    .attendance-table th, .attendance-table td { border: 1px solid #ccc; padding: 4px; text-align: center; }
+                    .attendance-table th { background-color: #f2f2f2; font-weight: bold; }
+                    .student-name-cell { text-align: left; font-weight: bold; width: 120px; }
+                    .summary-cell { background-color: #e8f4fd; font-weight: bold; }
                 </style>
             </head>
             <body>
                 <div class="header">
-                    <img src="${logoLeftBase64}">
-                    <h1>Reporte - ${groupName} (${periodo})</h1>
-                    <img src="${logoRightBase64}">
+                    <h1>Reporte Completo de Asistencia</h1>
+                    <p>${group.group_name} - ${group.subject_name}</p>
+                    <p>Periodo: Cuatrimestre Completo</p>
                 </div>
-                ${tableHtml}
-                ${chartHtml}
-                <div class="footer">Generado el ${currentDate} por Asistencias IAEV.</div>
+                ${tableHTML}
             </body>
             </html>
         `;
 
-        const defaultFilename = `Reporte_${groupName.replace(/ /g, '_')}_${periodo}.pdf`;
-        try {
-            const result = await window.api.exportFormattedPdf({
-                htmlContent: htmlContent,
-                defaultFilename: defaultFilename
-            });
-            if (result.success) {
-                showNotification('Reporte PDF formateado exportado con éxito.');
-            } else if (!result.cancelled) {
-                showNotification(`Error al exportar PDF: ${result.error}`, 'error');
-            }
-        } catch(e) {
-            showNotification(`Error al llamar a la exportación: ${e.message}`, 'error');
+        // 4. Llamar a la API para exportar
+        const safeGroupName = (`${group.group_name}_${group.subject_name}`).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const defaultFilename = `asistencia_completa_${safeGroupName}.pdf`;
+
+        const result = await window.api.exportFormattedPdf({ htmlContent, defaultFilename });
+        if (result.success) {
+            showNotification('Reporte PDF exportado con éxito.');
+        } else if (!result.cancelled) {
+            showNotification(`Error al exportar a PDF: ${result.error}`, 'error');
         }
     });
 
@@ -496,75 +427,16 @@ async function renderAttendanceGrid(groupId) {
         renderAttendanceGrid(groupId);
     });
 
-    // --- LÓGICA DE EXPORTACIÓN DE TABLA DE ASISTENCIA ---
-    async function exportFullAttendanceGridToPdf() {
-        const table = document.getElementById('attendance-table');
-        const selectedOption = attendanceGroupSelect.options[attendanceGroupSelect.selectedIndex];
-
-        if (!table) {
-            showNotification('No hay una tabla de asistencia para exportar.', 'error');
-            return;
-        }
-        if (!selectedOption || !selectedOption.value) {
-            showNotification('Por favor, selecciona un grupo para exportar.', 'error');
-            return;
-        }
-
-        showNotification('Preparando datos para el PDF...');
-
-        try {
-            // 1. Extraer las fechas del encabezado
-            // Se toman de la primera fila de datos para asegurar que tenemos todas las celdas
-            const firstDataRowCells = table.querySelectorAll('tbody tr:first-child td.status-cell');
-            if (firstDataRowCells.length === 0) {
-                 showNotification('No hay fechas de asistencia para exportar.', 'error');
-                 return;
-            }
-            const dates = Array.from(firstDataRowCells).map(cell => cell.dataset.date);
-
-            // 2. Extraer los datos de los alumnos
-            const studentRows = table.querySelectorAll('tbody tr');
-            const students = Array.from(studentRows).map(row => {
-                const name = row.querySelector('.student-name-cell').textContent;
-                const attendanceCells = row.querySelectorAll('td.status-cell');
-                const attendances = {};
-                attendanceCells.forEach(cell => {
-                    attendances[cell.dataset.date] = { status: cell.dataset.status };
-                });
-                return { name, attendances };
-            });
-
-            // 3. Llamar al nuevo handler del backend
-            showNotification('Generando PDF, por favor espera...');
-            const result = await window.api.exportFullAttendancePdf({
-                groupName: selectedOption.textContent,
-                dates,
-                students
-            });
-
-            if (result.success) {
-                showNotification('PDF de la tabla de asistencia exportado con éxito.');
-            } else if (!result.cancelled) {
-                showNotification(`Error al exportar PDF: ${result.error}`, 'error');
-            }
-        } catch (error) {
-            showNotification(`Se produjo un error al preparar los datos para el PDF: ${error.message}`, 'error');
-        }
-    }
-
-
     // --- LÓGICA DE REPORTES ---
     const generateReportBtn = document.getElementById('generate-report-btn');
     const reportResultsContainer = document.getElementById('report-results-container');
     const exportCsvBtn = document.getElementById('export-csv-btn');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
     const reportSearchInput = document.getElementById('report-search-input');
-    const lowAttendanceFilterToggle = document.getElementById('low-attendance-filter-toggle');
-    let attendanceChart = null; // Variable para mantener la instancia del gráfico
+    let reportChart = null; // Variable to hold the chart instance
 
     generateReportBtn.addEventListener('click', generateReport);
     reportSearchInput.addEventListener('input', () => renderReportTable(state.reportData));
-    lowAttendanceFilterToggle.addEventListener('change', () => renderReportTable(state.reportData));
 
     function renderReportTable(data) {
         if (!data) {
@@ -573,20 +445,10 @@ async function renderAttendanceGrid(groupId) {
         }
 
         const searchTerm = reportSearchInput.value.toLowerCase();
-        const lowAttendanceOnly = lowAttendanceFilterToggle.checked;
-
-        let filteredData = data.filter(row => {
-            const nameMatch = row.studentName.toLowerCase().includes(searchTerm);
-            const idMatch = row.studentId && row.studentId.toLowerCase().includes(searchTerm);
-            return nameMatch || idMatch;
-        });
-
-        if (lowAttendanceOnly) {
-            filteredData = filteredData.filter(row => parseFloat(row.percentage) < 80.0);
-        }
+        const filteredData = data.filter(row => row.studentName.toLowerCase().includes(searchTerm));
 
         if (filteredData.length === 0) {
-            reportResultsContainer.innerHTML = '<p>No se encontraron alumnos que coincidan con los filtros aplicados.</p>';
+            reportResultsContainer.innerHTML = '<p>No se encontraron alumnos que coincidan con la búsqueda.</p>';
             return;
         }
 
@@ -618,9 +480,6 @@ async function renderAttendanceGrid(groupId) {
         tableHTML += '</tbody></table>';
         reportResultsContainer.innerHTML = tableHTML;
         applyMatriculaVisibility();
-
-        // Después de renderizar la tabla, renderiza el gráfico
-        renderAttendanceChart(data);
     }
 
     exportCsvBtn.addEventListener('click', async () => {
@@ -634,6 +493,112 @@ async function renderAttendanceGrid(groupId) {
         }
     });
 
+    exportPdfBtn.addEventListener('click', async () => {
+        if (!state.reportData) {
+            showNotification('Primero genera un reporte para poder exportarlo.', 'error');
+            return;
+        }
+
+        const groupId = document.getElementById('report-group-select').value;
+        const group = await window.api.getGroupById(groupId);
+        const groupName = `${group.group_name} - ${group.subject_name}`;
+
+        const periodSelect = document.getElementById('report-period-select');
+        const periodName = periodSelect.options[periodSelect.selectedIndex].text;
+
+        // 1. Construir la tabla HTML
+        let tableHTML = `<table class="report-table">
+            <thead>
+                <tr>
+                    <th>Matrícula</th>
+                    <th>Alumno</th>
+                    <th>Asist.</th>
+                    <th>Ret.</th>
+                    <th>Faltas</th>
+                    <th>% Asist.</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+        state.reportData.forEach(res => {
+            const lowAttendanceClass = parseFloat(res.percentage) < 80.0 ? 'low-attendance' : '';
+            tableHTML += `<tr class="${lowAttendanceClass}">
+                <td>${res.studentId || ''}</td>
+                <td>${res.studentName}</td>
+                <td>${res.presente}</td>
+                <td>${res.retardo}</td>
+                <td>${res.ausente}</td>
+                <td>${res.percentage}%</td>
+            </tr>`;
+        });
+        tableHTML += '</tbody></table>';
+
+        // 2. Obtener la imagen del gráfico
+        const chartImage = reportChart ? reportChart.toBase64Image() : '';
+        const chartHtml = chartImage ? `
+            <div class="chart-container">
+                <h3>Resumen Gráfico</h3>
+                <img src="${chartImage}" alt="Gráfico de Asistencia">
+            </div>` : '';
+
+        // 3. Construir el HTML completo con estilos y gráfico
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <title>Reporte de Asistencia</title>
+                <style>
+                    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 20px; font-size: 10px; }
+                    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ccc; padding-bottom: 10px; }
+                    .header img { max-height: 70px; }
+                    .header-text { text-align: right; }
+                    .header-text h1 { margin: 0; font-size: 18px; }
+                    .header-text p { margin: 0; font-size: 12px; }
+                    .report-info { margin-top: 20px; margin-bottom: 20px; }
+                    .report-info h2, .report-info p { margin: 4px 0; }
+                    .report-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 30px; }
+                    .report-table th, .report-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
+                    .report-table th { background-color: #f2f2f2; }
+                    .report-table .low-attendance { color: #D32F2F; font-weight: bold; }
+                    .chart-container { text-align: center; margin-top: 20px; page-break-inside: avoid; }
+                    .chart-container img { max-width: 90%; height: auto; }
+                    h3 { font-size: 14px; text-align: center; margin-bottom: 15px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <img src="file://${await window.api.getAssetPath('iaev-logo.png')}" alt="Logo IAEV">
+                    <div class="header-text">
+                        <h1>Instituto de Altos Estudios Universitarios</h1>
+                        <p>Reporte de Asistencia</p>
+                    </div>
+                </div>
+
+                <div class="report-info">
+                    <h2>${groupName}</h2>
+                    <p><strong>Periodo:</strong> ${periodName}</p>
+                </div>
+
+                ${tableHTML}
+                ${chartHtml}
+
+            </body>
+            </html>
+        `;
+
+        // 4. Llamar a la API para exportar
+        const safeGroupName = groupName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const safePeriodName = periodName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const defaultFilename = `reporte_${safeGroupName}_${safePeriodName}.pdf`;
+
+        const result = await window.api.exportFormattedPdf({ htmlContent, defaultFilename });
+        if (result.success) {
+            showNotification('Reporte PDF exportado con éxito.');
+        } else if (!result.cancelled) {
+            showNotification(`Error al exportar a PDF: ${result.error}`, 'error');
+        }
+    });
 
     async function generateReport() {
         const groupId = document.getElementById('report-group-select').value;
@@ -683,52 +648,33 @@ async function renderAttendanceGrid(groupId) {
         }
 
         const classDays = group.class_days.split(',').map(Number);
-        const attendanceMap = new Map();
-        attendanceData.forEach(att => {
-            const key = `${att.student_id}-${att.attendance_date}`;
-            attendanceMap.set(key, att.status);
-        });
+        const classDatesInPeriod = [];
+        for (let d = new Date(groupStartDate); d <= groupEndDate; d.setDate(d.getDate() + 1)) {
+            if (classDays.includes(d.getDay())) {
+                const currentDate = new Date(d);
+                if (currentDate >= periodStartDate && currentDate <= periodEndDate) {
+                    classDatesInPeriod.push(currentDate.toISOString().split('T')[0]);
+                }
+            }
+        }
 
-        // Determina las fechas únicas en las que se tomó asistencia dentro del período.
-        const attendedDatesInPeriod = [...new Set(attendanceData
-            .map(att => att.attendance_date)
-            .filter(dateString => {
-                const attDate = new Date(dateString + 'T00:00:00');
-                return attDate >= periodStartDate && attDate <= periodEndDate;
-            })
-        )];
-
-        const totalClasses = attendedDatesInPeriod.length;
-
-        // Si no hay clases con asistencia en el período, genera un reporte con ceros.
+        const totalClasses = classDatesInPeriod.length;
         if (totalClasses === 0) {
-            const reportResults = students.map(student => ({
-                studentName: student.student_name,
-                studentId: student.student_id,
-                presente: 0,
-                retardo: 0,
-                ausente: 0,
-                percentage: '0.0'
-            }));
-
-            state.reportData = reportResults;
-            renderReportTable(state.reportData);
-            exportCsvBtn.disabled = false;
-            exportPdfBtn.disabled = false;
+            reportResultsContainer.innerHTML = '<p>No hay clases programadas en el periodo seleccionado.</p>';
             return;
         }
 
+        const attendanceMap = new Map();
+        attendanceData.forEach(att => attendanceMap.set(`${att.student_id}-${att.attendance_date}`, att.status));
+
         const reportResults = students.map(student => {
             let presente = 0, ausente = 0, retardo = 0;
-
-            // Itera solo sobre los días con asistencia registrada
-            attendedDatesInPeriod.forEach(date => {
+            classDatesInPeriod.forEach(date => {
                 const status = attendanceMap.get(`${student.id}-${date}`);
                 if (status === 'Presente') presente++;
                 else if (status === 'Retardo') retardo++;
-                else ausente++; // Asumir 'Ausente' si no hay registro en un día con asistencia
+                else ausente++;
             });
-
             const attendancePercentage = totalClasses > 0 ? ((presente + retardo) / totalClasses) * 100 : 0;
             return {
                 studentName: student.student_name,
@@ -744,71 +690,52 @@ async function renderAttendanceGrid(groupId) {
         renderReportTable(state.reportData);
         exportCsvBtn.disabled = false;
         exportPdfBtn.disabled = false;
-    }
 
-    function renderAttendanceChart(data) {
-        const ctx = document.getElementById('attendance-chart').getContext('2d');
-
-        if (attendanceChart) {
-            attendanceChart.destroy(); // Destruye el gráfico anterior para evitar superposiciones
+        // --- Render Chart ---
+        if (reportChart) {
+            reportChart.destroy();
         }
 
-        if (!data || data.length === 0) {
-            document.getElementById('report-chart-container').style.display = 'none';
-            return;
-        }
-        document.getElementById('report-chart-container').style.display = 'flex';
-
-
-        // Calcular totales para todo el grupo
-        const totals = data.reduce((acc, row) => {
-            acc.presente += row.presente;
-            acc.retardo += row.retardo;
-            acc.ausente += row.ausente;
+        const ctx = document.getElementById('report-chart').getContext('2d');
+        const totals = reportResults.reduce((acc, curr) => {
+            acc.presente += curr.presente;
+            acc.retardo += curr.retardo;
+            acc.ausente += curr.ausente;
             return acc;
         }, { presente: 0, retardo: 0, ausente: 0 });
 
-        attendanceChart = new Chart(ctx, {
+        reportChart = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: ['Asistencias', 'Retardos', 'Faltas'],
+                labels: ['Presente', 'Retardo', 'Ausente'],
                 datasets: [{
-                    label: 'Resumen General del Grupo',
+                    label: 'Total de Asistencias del Grupo',
                     data: [totals.presente, totals.retardo, totals.ausente],
                     backgroundColor: [
-                        'rgba(34, 197, 94, 0.6)',  // Verde para Asistencias
-                        'rgba(249, 115, 22, 0.6)', // Naranja para Retardos
-                        'rgba(239, 68, 68, 0.6)'  // Rojo para Faltas
+                        'rgba(75, 192, 192, 0.6)',
+                        'rgba(255, 206, 86, 0.6)',
+                        'rgba(255, 99, 132, 0.6)'
                     ],
                     borderColor: [
-                        'rgba(34, 197, 94, 1)',
-                        'rgba(249, 115, 22, 1)',
-                        'rgba(239, 68, 68, 1)'
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(255, 99, 132, 1)'
                     ],
                     borderWidth: 1
                 }]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
+                animation: false, // Important for generating a static image
                 scales: {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                             // Asegura que los ticks sean enteros
-                            stepSize: 1
+                            precision: 0 // Ensure y-axis has whole numbers
                         }
                     }
                 },
-                plugins: {
-                    legend: {
-                        display: false
-                    },
-                    title: {
-                        display: true,
-                        text: 'Resumen de Asistencia General del Grupo'
-                    }
-                }
+                responsive: true,
+                maintainAspectRatio: false
             }
         });
     }
@@ -1262,22 +1189,19 @@ async function renderAttendanceGrid(groupId) {
         const attendanceMap = new Map();
         attendanceData.forEach(att => {
             if (att.attendance_date === today) {
-                attendanceMap.set(att.student_id.toString(), att.status);
+                attendanceMap.set(att.student_id, att.status);
             }
         });
 
-        // Adjuntar el estado de asistencia actual a cada estudiante
-        students.forEach(s => {
-            s.currentStatus = attendanceMap.get(s.id.toString()) || 'Pendiente';
-        });
+        const pendingStudents = students.filter(s => !attendanceMap.has(s.id));
 
-        if (students.length === 0) {
-            showNotification('Este grupo no tiene alumnos.', 'error');
+        if (pendingStudents.length === 0) {
+            showNotification('Todos los alumnos de este grupo ya tienen un estado de asistencia para hoy.');
             return;
         }
 
         rollCallState = {
-            students: students,
+            students: pendingStudents,
             currentIndex: 0,
             groupId: groupId,
             attendances: []
@@ -1294,24 +1218,17 @@ async function renderAttendanceGrid(groupId) {
             return;
         }
         const student = rollCallState.students[rollCallState.currentIndex];
-        const studentNameEl = document.getElementById('roll-call-student-name');
-        const progressEl = document.getElementById('roll-call-progress');
-        const currentStatusEl = document.getElementById('roll-call-current-status');
-
-        studentNameEl.textContent = student.student_name;
-        progressEl.textContent = `Alumno ${rollCallState.currentIndex + 1} de ${rollCallState.students.length}`;
-
-        // Muestra el estado actual del alumno
-        const statusText = student.currentStatus === 'Pendiente' ? 'Sin registrar' : student.currentStatus;
-        currentStatusEl.textContent = `Estado actual: ${statusText}`;
-        currentStatusEl.className = `status-${student.currentStatus.toLowerCase()}`;
+        document.getElementById('roll-call-student-name').textContent = student.student_name;
+        document.getElementById('roll-call-progress').textContent = `Alumno ${rollCallState.currentIndex + 1} de ${rollCallState.students.length}`;
     }
 
     function processRollCallAction(status) {
-        // Actualiza el estado del estudiante actual en la lista principal
         const student = rollCallState.students[rollCallState.currentIndex];
-        student.currentStatus = status;
-
+        rollCallState.attendances.push({
+            studentId: student.id,
+            date: new Date().toISOString().split('T')[0],
+            status: status
+        });
         rollCallState.currentIndex++;
         updateRollCallView();
     }
@@ -1339,18 +1256,13 @@ async function renderAttendanceGrid(groupId) {
         document.removeEventListener('keydown', handleRollCallKeyPress);
         rollCallModal.classList.add('hidden');
 
-        // Prepara los datos para el nuevo handler
-        const payload = {
-            groupId: rollCallState.groupId,
-            date: new Date().toISOString().split('T')[0],
-            attendances: rollCallState.students.map(s => ({ studentId: s.id, status: s.currentStatus }))
-        };
+        const filteredAttendances = rollCallState.attendances.filter(a => a.status !== 'Pendiente');
 
-        try {
-            const result = await window.api.saveRollCall(payload);
-            showNotification(`Pase de lista guardado. ${result.changes} registros afectados.`);
-        } catch (error) {
-            showNotification(`Error al guardar el pase de lista: ${error.message}`, 'error');
+        if (filteredAttendances.length > 0) {
+            await window.api.setBulkAttendance(filteredAttendances);
+            showNotification(`Pase de lista guardado para ${filteredAttendances.length} alumnos.`);
+        } else {
+            showNotification('Pase de lista finalizado sin cambios.', 'error');
         }
 
         // Navegar a la vista de asistencia y refrescar la tabla

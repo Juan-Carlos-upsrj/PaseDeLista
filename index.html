@@ -150,10 +150,9 @@
                                         <button id="add-student-btn" class="btn btn-primary">+ Añadir Alumno</button>
                                     </div>
                                 </div>
-                                <div class="students-table-container">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
                                             <th class="matricula-col">Matrícula</th>
                                             <th>Nombre Completo</th>
                                             <th>Acciones</th>
@@ -161,7 +160,6 @@
                                     </thead>
                                     <tbody id="students-table-body"></tbody>
                                 </table>
-                                </div>
                             </div>
                         </div>
                         <div id="no-group-selected-view">
@@ -179,8 +177,8 @@
                         <label for="attendance-group-select">Seleccionar Grupo</label>
                         <select id="attendance-group-select"></select>
                     </div>
-                    <button id="export-grid-pdf-btn" class="btn btn-secondary">Exportar a PDF</button>
                     <button id="quick-pass-btn" class="btn btn-secondary" style="margin-left: auto;">Marcar Todos Presentes</button>
+                    <button id="export-full-attendance-pdf-btn" class="btn btn-secondary">Exportar a PDF</button>
                 </div>
                 <div id="attendance-grid-container" class="table-container"></div>
             </section>
@@ -203,11 +201,7 @@
                     </div>
                     <div class="form-group">
                         <label for="report-search-input">Buscar Alumno</label>
-                        <input type="search" id="report-search-input" placeholder="Nombre o matrícula...">
-                    </div>
-                    <div class="form-group-toggle" style="align-self: flex-end; margin-bottom: 1rem;">
-                        <input type="checkbox" id="low-attendance-filter-toggle" class="toggle-switch">
-                        <label for="low-attendance-filter-toggle">Mostrar solo baja asistencia (&lt; 80%)</label>
+                        <input type="search" id="report-search-input" placeholder="Nombre del alumno...">
                     </div>
                     <button id="generate-report-btn" class="btn btn-primary">Generar Reporte</button>
                     <div class="form-actions" style="margin-top: 0; padding-top: 0;">
@@ -215,13 +209,11 @@
                          <button id="export-pdf-btn" class="btn btn-secondary" disabled>Exportar a PDF</button>
                     </div>
                 </div>
-                <div class="report-content-area">
-                    <div id="report-results-container" class="table-container">
-                        <p>Selecciona un grupo y un periodo, y haz clic en "Generar Reporte" para ver los resultados.</p>
-                    </div>
-                    <div id="report-chart-container">
-                        <canvas id="attendance-chart"></canvas>
-                    </div>
+                <div id="report-results-container" class="table-container">
+                    <p>Selecciona un grupo y un periodo, y haz clic en "Generar Reporte" para ver los resultados.</p>
+                </div>
+                 <div class="chart-container" style="margin-top: 2rem;">
+                    <canvas id="report-chart"></canvas>
                 </div>
             </section>
         </main>
@@ -290,7 +282,6 @@
             <h3 id="roll-call-title">Pase de Lista Rápido</h3>
             <p id="roll-call-progress">Alumno 1 de 20</p>
             <h2 id="roll-call-student-name">Nombre del Alumno Apellido Apellido</h2>
-            <p id="roll-call-current-status" class="text-center mb-4"></p>
             <div class="roll-call-actions">
                 <button data-status="Presente" class="btn btn-primary">(P) Presente</button>
                 <button data-status="Ausente" class="btn btn-danger">(A) Ausente</button>
@@ -306,31 +297,6 @@
         </div>
     </div>
 
-    <div id="edit-student-modal" class="modal-backdrop hidden">
-        <div class="modal">
-            <h3>Editar Alumno</h3>
-            <form id="edit-student-form">
-                <input type="hidden" id="edit-student-id-input">
-                <div class="form-group">
-                    <label for="edit-student-id">Matrícula (Opcional)</label>
-                    <input type="text" id="edit-student-matricula-input">
-                </div>
-                <div class="form-group">
-                    <label for="edit-student-name">Nombre Completo</label>
-                    <input type="text" id="edit-student-name-input" required>
-                </div>
-                <div class="modal-actions" style="justify-content: space-between;">
-                    <button type="button" id="delete-student-from-modal-btn" class="btn btn-danger">Eliminar Alumno</button>
-                    <div>
-                        <button type="button" id="cancel-edit-student-btn" class="btn btn-secondary">Cancelar</button>
-                        <button type="submit" class="btn btn-primary">Guardar Cambios</button>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script src="./node_modules/chart.js/dist/chart.umd.js"></script>
     <script src="./renderer.js"></script>
 </body>
 </html>

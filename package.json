@@ -1,5 +1,5 @@
 {
-  "name": "asistencias-iaev",
+  "name": "asistencia-pro",
   "version": "2.0.0",
   "description": "Aplicación de escritorio para gestión de asistencia docente.",
   "main": "main.js",
@@ -17,11 +17,10 @@
     "electron-rebuild": "^3.2.9"
   },
   "dependencies": {
-    "chart.js": "^4.5.1",
     "sqlite3": "^5.1.6"
   },
   "build": {
-    "appId": "com.docente.asistenciasiaev",
+    "appId": "com.docente.asistenciapro",
     "productName": "Asistencias IAEV",
     "files": [
       "**/*"

@@ -16,14 +16,11 @@ contextBridge.exposeInMainWorld('api', {
     addStudent: (student) => ipcRenderer.invoke('add-student', student),
     addMultipleStudents: (data) => ipcRenderer.invoke('add-multiple-students', data),
     deleteStudent: (id) => ipcRenderer.invoke('delete-student', id),
-    getStudentById: (id) => ipcRenderer.invoke('get-student-by-id', id),
-    updateStudent: (student) => ipcRenderer.invoke('update-student', student),
 
     // Funciones para Asistencia
     getAttendance: (groupId) => ipcRenderer.invoke('get-attendance', groupId),
     setAttendance: (attendance) => ipcRenderer.invoke('set-attendance', attendance),
-    deleteAttendance: (data) => ipcRenderer.invoke('delete-attendance', data),
-    saveRollCall: (data) => ipcRenderer.invoke('save-roll-call', data),
+    setBulkAttendance: (attendances) => ipcRenderer.invoke('setBulkAttendance', attendances),
 
     // Funciones para Configuración
     getSettings: () => ipcRenderer.invoke('get-settings'),
@@ -43,6 +40,8 @@ contextBridge.exposeInMainWorld('api', {
 
     // Exportación
     exportCsv: (data) => ipcRenderer.invoke('export-csv', data),
-    exportFullAttendancePdf: (data) => ipcRenderer.invoke('export-full-attendance-pdf', data),
     exportFormattedPdf: (data) => ipcRenderer.invoke('export-formatted-pdf', data),
+
+    // Utilidades
+    getAssetPath: (assetName) => ipcRenderer.invoke('get-asset-path', assetName),
 });
