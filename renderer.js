@@ -371,9 +371,13 @@ async function renderAttendanceGrid(groupId) {
                 <title>Reporte Completo de Asistencia</title>
                 <style>
                     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 15px; font-size: 8px; }
-                    .header { text-align: center; margin-bottom: 20px; }
-                    .header h1 { margin: 0; font-size: 16px; }
-                    .header p { margin: 2px 0; font-size: 10px; }
+                    /* --- ESTILOS DE HEADER MODIFICADOS --- */
+                    .header { display: flex; justify-content: space-between; align-items: center; text-align: left; margin-bottom: 20px; border-bottom: 2px solid #ccc; padding-bottom: 10px;}
+                    .header-info { flex-grow: 1; text-align: right; }
+                    .header-info h1 { margin: 0; font-size: 16px; }
+                    .header-info p { margin: 2px 0; font-size: 10px; }
+                    .header img { max-height: 50px; }
+                    /* --- FIN DE ESTILOS MODIFICADOS --- */
                     .attendance-table { width: 100%; border-collapse: collapse; font-size: 8px; }
                     .attendance-table th, .attendance-table td { border: 1px solid #ccc; padding: 4px; text-align: center; }
                     .attendance-table th { background-color: #f2f2f2; font-weight: bold; }
@@ -383,9 +387,12 @@ async function renderAttendanceGrid(groupId) {
             </head>
             <body>
                 <div class="header">
-                    <h1>Reporte Completo de Asistencia</h1>
-                    <p>${group.group_name} - ${group.subject_name}</p>
-                    <p>Periodo: Cuatrimestre Completo</p>
+                    <img src="file://${await window.api.getAssetPath('iaev-logo.png')}" alt="Logo IAEV">
+                    <div class="header-info">
+                        <h1>Reporte Completo de Asistencia</h1>
+                        <p>${group.group_name} - ${group.subject_name}</p>
+                        <p>Periodo: Cuatrimestre Completo</p>
+                    </div>
                 </div>
                 ${tableHTML}
             </body>
@@ -506,6 +513,11 @@ async function renderAttendanceGrid(groupId) {
         const periodSelect = document.getElementById('report-period-select');
         const periodName = periodSelect.options[periodSelect.selectedIndex].text;
 
+        // --- INICIO DE CÓDIGO AÑADIDO ---
+        const daysMap = { 0: 'Domingo', 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado' };
+        const formattedDays = group.class_days.split(',').map(d => daysMap[d] || 'Día Inválido').join(', ');
+        // --- FIN DE CÓDIGO AÑADIDO ---
+
         // 1. Construir la tabla HTML
         let tableHTML = `<table class="report-table">
             <thead>
@@ -577,7 +589,9 @@ async function renderAttendanceGrid(groupId) {
 
                 <div class="report-info">
                     <h2>${groupName}</h2>
+                    <p><strong>Docente:</strong> [Nombre del Docente]</p>
                     <p><strong>Periodo:</strong> ${periodName}</p>
+                    <p><strong>Días de Clase:</strong> ${formattedDays}</p>
                 </div>
 
                 ${tableHTML}
